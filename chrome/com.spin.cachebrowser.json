@@ -1,0 +1,9 @@
+{
+  "name": "com.spin.cachebrowser",
+  "description": "CacheBrowser",
+  "path": "HOST_PATH",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://jebpnhjpgappcniemiancnmjfebollok/"
+  ]
+}

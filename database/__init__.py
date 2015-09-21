@@ -1,7 +1,6 @@
-import logging
+from database.sqlite import SqliteDatabase
 
-domain_cdn = {}
-cdn_ip = {}
+database = SqliteDatabase()
 
 
 def get_cdn_for_domain(domain):
@@ -10,10 +9,7 @@ def get_cdn_for_domain(domain):
     :param domain:
     :return:
     """
-    try:
-        return domain_cdn[domain]
-    except KeyError:
-        return None
+    return database.get_cdn_for_domain(domain)
 
 
 def get_cdn_ips(cdn):
@@ -22,19 +18,12 @@ def get_cdn_ips(cdn):
     :param cdn:
     :return:
     """
-    try:
-        return cdn_ip[cdn]
-    except KeyError:
-        return None
+    return database.get_cdn_ips(cdn)
 
 
 def add_cdn_for_domain(domain, cdn):
-    logging.debug("Add CDN %s for domain %s" % (cdn, domain))
-
-    domain_cdn[domain] = cdn
+    return database.add_cdn_for_domain(domain, cdn)
 
 
 def add_cdn_ip(cdn, ip):
-    logging.debug("Add IP address(es) for CDN %s: %s" % (cdn, str(ip)))
-
-    cdn_ip[cdn] = ip
+    return database.add_cdn_ip(cdn, ip)

@@ -1,5 +1,6 @@
 import re
 
+
 class LocalDNS(object):
     def list_records(self):
         """

@@ -1,4 +1,4 @@
-from . import options
+from settings import settings
 import threading
 import core
 from .daemon import Daemon
@@ -15,7 +15,7 @@ def parse_arguments():
     parser.add_argument('-s', '-socket', dest='socket', help="cachebrowser socket")
 
     args = parser.parse_args()
-    options.update_from_args(vars(args))
+    settings.update_from_args(vars(args))
 
 
 def init_logging():
@@ -32,7 +32,7 @@ def init_logging():
 def run_cachebrowser():
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
-    socket_name = options.get_or_error('socket')
+    socket_name = settings.get_or_error('socket')
 
     try:
         os.remove(socket_name)
@@ -56,7 +56,7 @@ def run_cachebrowser():
 if __name__ == '__main__':
     parse_arguments()
     init_logging()
-    if options.get('daemon', False):
+    if settings.get('daemon', False):
         daemon = Daemon('/tmp/cachebrowser.pid', run_cachebrowser)
         daemon.start()
     else:

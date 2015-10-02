@@ -32,15 +32,15 @@ class EventLoop(object):
             ip = "0.0.0.0"
 
         sock = self._create_server_socket(ip, port)
-        self.register_socket(sock, handler)
+        self.register_socket(sock, handler, None)
         self._servers.add(sock.fileno())
 
-    def register_socket(self, sock, handler):
+    def register_socket(self, sock, data_callback, close_callback):
         sock.setblocking(0)
-        self._sockets[sock.fileno()] = (sock, handler)
-        self._register(sock.fileno(), handler)
+        self._sockets[sock.fileno()] = (sock, data_callback, close_callback)
+        self._register(sock.fileno())
 
-    def _register(self, fd, handler):
+    def _register(self, fd):
         self._impl.register(fd, POLL_IN)
 
     def _unregister(self, fd):
@@ -51,19 +51,22 @@ class EventLoop(object):
             while True:
                 events = self._impl.poll(1)
                 for fileno, event in events:
-                    sock, handler = self._sockets[fileno]
+                    sock, data_handler, close_handler = self._sockets[fileno]
                     if fileno in self._servers:
                         connection, address = sock.accept()
-                        handler(connection, address, self)
+                        data_handler(connection, address, self)
                     elif event & POLL_IN:
                         data = sock.recv(1024)
                         if data is None or len(data) == 0:
                             self._unregister(fileno)
+                            close_handler()
 
-                        handler(sock, data, looper=self)
-                    elif event & POLL_IN:
+                        data_handler(data)
+                    elif event & POLL_HUP:
                         self._unregister(fileno)
+                        print("AHAA")
                         sock.close()
+                        close_handler()
                         del self._sockets[fileno]
         finally:
             for server in self._servers:

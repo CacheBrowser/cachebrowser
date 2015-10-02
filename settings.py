@@ -11,6 +11,8 @@ class CacheBrowserSettings(dict):
 
         # Set defaults
         self['socket'] = '/tmp/cachebrowser.sock'
+        self['host'] = '0.0.0.0'
+        self['port'] = 9876
 
     def get_or_error(self, key):
         if self.get(key, None):

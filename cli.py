@@ -1,5 +1,8 @@
-from core import common
+import logging
+
+import common
 import localdns
+
 
 __all__ = ['handle_message']
 
@@ -72,7 +75,7 @@ def handle_command(connection, command, *rem):
     })(connection, *rem)
 
 
-def handle_message(connection, message):
+def handle_message(connection, message, *kwargs):
     if not message or len(message.strip()) == 0:
         return
 
@@ -88,3 +91,8 @@ def handle_message(connection, message):
             connection.send(" Valid commands are:\n%s\n" % (', '.join(e.valid_commands)))
     except InsufficientCommandParametersException as e:
         connection.send("Expected %s parameter\n" % e.param)
+
+
+def handle_connection(connection, addr, looper):
+    logging.debug("New CLI connection established with %s" % str(addr))
+    looper.register_socket(connection, handle_message)

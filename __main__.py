@@ -1,12 +1,13 @@
-from settings import settings
-import threading
-import core
-from .daemon import Daemon
 import argparse
 import logging
 import sys
-import os
-import socket
+import cli
+import proxy
+
+from settings import settings
+from daemon import Daemon
+import eventloop
+import api
 
 
 def parse_arguments():
@@ -30,28 +31,16 @@ def init_logging():
 
 
 def run_cachebrowser():
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-
-    socket_name = settings.get_or_error('socket')
-
-    try:
-        os.remove(socket_name)
-    except OSError:
-        pass
-
     logging.info("Cachebrowser running...")
     logging.debug("Waiting for connections...")
 
-    sock.bind(socket_name)
-    sock.listen(1)
+    looper = eventloop.looper
+    looper.register_server(5000, api.handle_connection)
+    looper.register_server(5001, cli.handle_connection)
+    looper.register_server(5002, proxy.handle_connection)
 
-    while True:
-        connection, address = sock.accept()
+    looper.start()
 
-        def handle():
-            core.handle_connection(connection, address)
-
-        threading.Thread(target=handle).start()
 
 if __name__ == '__main__':
     parse_arguments()

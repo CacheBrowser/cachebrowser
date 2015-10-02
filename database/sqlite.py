@@ -8,24 +8,23 @@ from settings import settings
 __all__ = ['SqliteDatabase']
 
 CREATE_DATABASE_SQL = [
-"""
-create table cdn (
-  id varchar(63) primary key,
-  name varchar(255)
-);
-""",
+# """
+# create table cdn (
+#   id varchar(63) primary key,
+#   name varchar(255)
+# );
+# """,
 """
 create table cdn_ip (
-  cdn varchar(63) primary key,
-  ip varchar(15) not null,
-  foreign key(cdn) references cdn(id)
+  cdn varchar(63),
+  ip varchar(15),
+  primary key (cdn, ip)
 );
 """,
 """
 create table domain_cdn (
   domain varchar(127) primary key,
-  cdn varchar(63),
-  foreign key(cdn) references cdn(ip)
+  cdn varchar(63)
 );
 """
 ]
@@ -37,7 +36,7 @@ class SqliteDatabase(CacheBrowserDatabase):
 
     def get_connection(self):
         if not self.connection:
-            db_file = settings.get("sqlite_database", "/Users/hadi/.cachebrowser.db")
+            db_file = settings.get("sqlite_database", "/tmp/cachebrowser.db")
             is_db_new = not os.path.isfile(db_file)
             self.connection = sqlite3.connect(db_file)
 

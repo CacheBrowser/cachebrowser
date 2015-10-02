@@ -1,8 +1,9 @@
 import json
 import logging
-from core import cli
+
+import api
+import cli
 from core import stream
-from core import api
 
 
 def handle_connection(connection, address):

@@ -7,7 +7,7 @@ import common
 __all__ = ['handle_connection']
 
 
-def action_add_domain(connection, message):
+def action_add_domain(message):
     common.add_domain(message['data']['domain'])
     connection.send(json.dumps({
         'result': 'success',
@@ -16,24 +16,30 @@ def action_add_domain(connection, message):
     connection.send('\n')
 
 
-def handle_message(connection, message, *kwargs):
+def handle_message(message, *kwargs):
     print(json.dumps(message))
     handler = {
         'add domain': action_add_domain
     }.get(message['action'], None)
 
     if handler:
-        return handler(connection, message)
+        return handler(message)
 
     connection.send(json.dumps({
         'error': 'Unrecognized action'
     }))
 
 
-def handle_data(connection, data):
-    handle_message(connection, json.loads(data))
+def handle_data(data):
+    handle_message(json.loads(data))
 
 
-def handle_connection(connection, addr, looper):
+def handle_close():
+    pass
+
+connection = None
+def handle_connection(con, addr, looper):
+    global connection
+    connection = con
     logging.debug("New API connection established with %s" % str(addr))
-    looper.register_socket(connection, handle_data)
+    looper.register_socket(connection, handle_data, handle_close)

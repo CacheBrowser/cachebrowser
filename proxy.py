@@ -1,7 +1,10 @@
+from common import silent_fail
 import logging
 import socket
 import StringIO
 import re
+import dns
+
 
 _connections = {}
 
@@ -14,6 +17,7 @@ class ProxyConnection(object):
         self._local_socket = sock
         self._remote_socket = None
 
+    @silent_fail(log=True)
     def on_upstream_data(self, data):
         if len(data) == 0:
             return
@@ -26,6 +30,7 @@ class ProxyConnection(object):
         if schema is not None:
             self._schema = schema(self, self._looper, self._buffer)
 
+    @silent_fail(log=True)
     def on_downstream_data(self, data):
         if len(data) == 0:
             return
@@ -34,6 +39,7 @@ class ProxyConnection(object):
 
         self.send_downstream(data)
 
+    @silent_fail(log=True)
     def on_local_closed(self):
         if self._remote_socket is None:
             return
@@ -43,6 +49,7 @@ class ProxyConnection(object):
         except socket.error:
             pass
 
+    @silent_fail(log=True)
     def on_remote_closed(self):
         try:
             self._local_socket.close()
@@ -109,7 +116,7 @@ class HttpSchema(object):
         return self._connect_upstream(host)
 
     def _connect_upstream(self, host):
-        sock = create_connection(host, 80)
+        sock = _connect(host, 80)
         self._looper.register_socket(sock, self._connection.on_downstream_data, self._connection.on_remote_closed)
         self._connection._remote_socket = sock
 
@@ -147,14 +154,18 @@ class SSLSchema(object):
             return
 
         host = match.group(1)
-        port = match.group(2) or 443
+        port = int(match.group(2) or 443)
 
         logging.info("[HTTPS] %s:%s" % (host, port))
 
         return self._connect_upstream(host, port)
 
     def _connect_upstream(self, host, port):
-        sock = create_connection(host, port)
+        ip = dns.resolve_host(host)
+        if not ip:
+            return
+
+        sock = _connect(ip, port)
         self._looper.register_socket(sock, self._connection.on_downstream_data, self._connection.on_remote_closed)
         self._connection._remote_socket = sock
 
@@ -175,8 +186,12 @@ def handle_connection(sock, addr, looper):
     looper.register_socket(sock, connection.on_upstream_data, connection.on_local_closed)
 
 
-def create_connection(host, port):
-    # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def _connect(ip, port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # sock.setblocking(0)
-    # sock.connect()
-    return socket.create_connection((host, port))
+    # Blocking for now
+    try:
+        sock.connect((ip, port))
+    except socket.error:
+        pass
+    return sock

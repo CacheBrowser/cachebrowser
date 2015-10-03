@@ -8,6 +8,7 @@ from settings import settings
 from daemon import Daemon
 import eventloop
 import api
+import models
 
 
 def parse_arguments():
@@ -34,6 +35,7 @@ def run_cachebrowser():
     logging.info("Cachebrowser running...")
     logging.debug("Waiting for connections...")
 
+    models.initialize_database('/tmp/cachebrowser.db')
     looper = eventloop.looper
     looper.register_server(5000, api.handle_connection)
     looper.register_server(5001, cli.handle_connection)

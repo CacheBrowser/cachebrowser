@@ -2,6 +2,7 @@ from collections import defaultdict
 import logging
 import socket
 import select
+import traceback
 
 __all__ = ['loop']
 
@@ -49,25 +50,27 @@ class EventLoop(object):
     def _run(self):
         try:
             while True:
-                events = self._impl.poll(1)
-                for fileno, event in events:
-                    sock, data_handler, close_handler = self._sockets[fileno]
-                    if fileno in self._servers:
-                        connection, address = sock.accept()
-                        data_handler(connection, address, self)
-                    elif event & POLL_IN:
-                        data = sock.recv(1024)
-                        if data is None or len(data) == 0:
-                            self._unregister(fileno)
-                            close_handler()
+                try:
+                    events = self._impl.poll(1)
+                    for fileno, event in events:
+                        sock, data_handler, close_handler = self._sockets[fileno]
+                        if fileno in self._servers:
+                            connection, address = sock.accept()
+                            data_handler(connection, address, self)
+                        elif event & POLL_IN:
+                            data = sock.recv(1024)
+                            if data is None or len(data) == 0:
+                                self._unregister(fileno)
+                                close_handler()
 
-                        data_handler(data)
-                    elif event & POLL_HUP:
-                        self._unregister(fileno)
-                        print("AHAA")
-                        sock.close()
-                        close_handler()
-                        del self._sockets[fileno]
+                            data_handler(data)
+                        elif event & POLL_HUP:
+                            self._unregister(fileno)
+                            sock.close()
+                            close_handler()
+                            del self._sockets[fileno]
+                except socket.error:
+                    traceback.format_exc()
         finally:
             for server in self._servers:
                 self._unregister(server)

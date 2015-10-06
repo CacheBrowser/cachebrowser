@@ -24,21 +24,24 @@ def read_from_chrome():
     return text
 
 
-sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-socket_name = '/tmp/cachebrowser.sock'
-sock.connect(socket_name)
+# sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+# socket_name = '/tmp/cachebrowser.sock'
+# sock.connect(socket_name)
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect(('127.0.0.1', 4242))
 
 message = read_from_chrome()
 sock.send(message)
 sock.send('\n')
 
-response = ''
-while True:
-    read = sock.recv(1024)
-    if len(read) == 0:
-        break
-    response += read
-# response = sock.recv(1024)
+# response = ''
+# while True:
+#     read = sock.recv(1024)
+#     if len(read) == 0:
+#         break
+#     response += read
 
+response = sock.recv(1024)
 send_to_chrome(response)
 
+# send_to_chrome("{}")

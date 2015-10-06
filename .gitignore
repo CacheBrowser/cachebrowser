@@ -65,3 +65,5 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+
+MANIFEST

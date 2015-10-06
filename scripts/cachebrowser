@@ -1,0 +1,4 @@
+#!python
+import cachebrowser
+
+cachebrowser.start_cachebrowser()

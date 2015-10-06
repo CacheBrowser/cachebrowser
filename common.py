@@ -25,6 +25,17 @@ def add_domain(url):
 
     bootstrapper.bootstrap_host(host)
 
+    return host
+
+
+def is_host_active(url):
+    host = _parse_url(url)
+    try:
+        Host.get(url=host)
+        return True
+    except Host.DoesNotExist:
+        return False
+
 
 def _parse_url(url):
     if '://' not in url:
@@ -40,7 +51,7 @@ def silent_fail(log=False):
                 return func(*args, **kwargs)
             except Exception as e:
                 if log:
-                    traceback.format_exc()
+                    logging.error(traceback.format_exc())
 
         return inner
     return outer

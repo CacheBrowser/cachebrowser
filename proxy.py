@@ -181,7 +181,7 @@ class SSLSchema(object):
 
 
 def handle_connection(sock, addr, looper):
-    # logging.debug("New proxy connection established with %s" % str(addr))
+    logging.debug("New proxy connection established with %s" % str(addr))
     connection = ProxyConnection(looper, sock)
     looper.register_socket(sock, connection.on_upstream_data, connection.on_local_closed)
 

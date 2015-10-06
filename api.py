@@ -7,39 +7,75 @@ import common
 __all__ = ['handle_connection']
 
 
-def action_add_domain(message):
-    common.add_domain(message['data']['domain'])
-    connection.send(json.dumps({
-        'result': 'success',
-        'domain': message['data']['domain']
-    }))
-    connection.send('\n')
+class BaseAPIHandler(object):
+    def __init__(self, sock):
+        self._socket = sock
+        self._handlers = {}
+
+    @common.silent_fail(log=True)
+    def on_data(self, data, *kwargs):
+        if data is None or len(data.strip()) == 0:
+            print("---")
+            return
+        print(data)
+
+        try:
+            message = json.loads(data.strip())
+        except ValueError:
+            logging.error("Invalid JSON recevied: %s (%d)" % (data, len(data)))
+            self.send_message({
+                'error': 'Invalid message'
+            })
+            return
+
+        handler = self._handlers.get(message['action'], None)
+
+        if handler:
+            response = handler(message)
+            if response is not None:
+                response['messageId'] = message['messageId']
+            self.send_message(response)
+            return
+
+        self.send_message({
+            'error': 'Unrecognized action'
+        })
+
+    def on_close(self):
+        pass
+
+    def send_message(self, message):
+        self.send(json.dumps(message) + '\n')
+
+    def send(self, data):
+        self._socket.send(data)
 
 
-def handle_message(message, *kwargs):
-    print(json.dumps(message))
-    handler = {
-        'add domain': action_add_domain
-    }.get(message['action'], None)
+class APIHandler(BaseAPIHandler):
+    def __init__(self, *args, **kwargs):
+        super(APIHandler, self).__init__(*args, **kwargs)
+        self._handlers = {
+            'add host': self.action_add_host,
+            'check host': self.action_check_host
+        }
 
-    if handler:
-        return handler(message)
+    def action_add_host(self, message):
+        host = common.add_domain(message['host'])
+        return {
+            'result': 'success',
+            'host': host
+        }
 
-    connection.send(json.dumps({
-        'error': 'Unrecognized action'
-    }))
+    def action_check_host(self, message):
+        is_active = common.is_host_active(message['host'])
+
+        return {
+            'result': 'active' if is_active else 'inactive',
+            'host': message['host']
+        }
 
 
-def handle_data(data):
-    handle_message(json.loads(data))
-
-
-def handle_close():
-    pass
-
-connection = None
 def handle_connection(con, addr, looper):
-    global connection
-    connection = con
+    api_handler = APIHandler(con)
     logging.debug("New API connection established with %s" % str(addr))
-    looper.register_socket(connection, handle_data, handle_close)
+    looper.register_socket(con, api_handler.on_data, api_handler.on_close)

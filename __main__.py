@@ -37,7 +37,7 @@ def run_cachebrowser():
 
     models.initialize_database('/tmp/cachebrowser.db')
     looper = eventloop.looper
-    looper.register_server(5000, api.handle_connection)
+    looper.register_server(4242, api.handle_connection)
     looper.register_server(5001, cli.handle_connection)
     looper.register_server(5002, proxy.handle_connection)
 

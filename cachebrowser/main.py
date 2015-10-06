@@ -44,7 +44,7 @@ def run_cachebrowser():
     looper.start()
 
 
-if __name__ == '__main__':
+def main():
     parse_arguments()
     init_logging()
     if settings.get('daemon', False):
@@ -52,3 +52,6 @@ if __name__ == '__main__':
         daemon.start()
     else:
         run_cachebrowser()
+
+if __name__ == '__main__':
+    main()

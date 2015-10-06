@@ -15,9 +15,8 @@ class BaseAPIHandler(object):
     @common.silent_fail(log=True)
     def on_data(self, data, *kwargs):
         if data is None or len(data.strip()) == 0:
-            print("---")
             return
-        print(data)
+        logging.debug(data)
 
         try:
             message = json.loads(data.strip())

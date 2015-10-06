@@ -1,75 +1,98 @@
 import logging
+from cachebrowser.models import Host, CDN
 
 import common
-import localdns
 
 __all__ = ['handle_message']
-connection = None
-
-def domain_add(host=None):
-    if not host:
-        raise InsufficientCommandParametersException('host')
-
-    common.add_domain(host)
 
 
-_commands = {
-    'add': {
-        'host': domain_add
-    }
-}
+class BaseCLIHandler(object):
+    def __init__(self, sock):
+        self._socket = sock
+        self._handlers = {}
 
+    @common.silent_fail(log=True)
+    def on_data(self, data, *kwargs):
+        if data is None or len(data.strip()) == 0:
+            return
+        logging.debug(data)
 
-def handle_command(*parts):
-    valid_commands = _commands
-    for i in range(len(parts)):
-        command = parts[i]
-        if command == '?':
-            return connection.send("%s\n" % (', '.join(valid_commands.keys())))
-        if command not in valid_commands:
-            if '_' in valid_commands:
-                return valid_commands['_'](*parts[i:])
-            else:
-                raise UnrecognizedCommandException(command, valid_commands.keys())
+        message = data.strip()
+        parts = message.split(' ')
 
-        valid_commands = valid_commands[command]
+        try:
+            self._handle_command(*parts)
+        except UnrecognizedCommandException as e:
+            self.send_line("Unrecognized command '" + e.command.strip() + "'.")
+            if e.valid_commands:
+                self.send_line(" Valid commands are:\n%s\n" % (', '.join(e.valid_commands)))
+        except InsufficientCommandParametersException as e:
+            self.send_line("Expected %s parameter\n" % e.param)
+
+    def on_close(self):
+        pass
+
+    def _handle_command(self, *parts):
+        valid_commands = self._handlers
+        for i in range(len(parts)):
+            command = parts[i]
+            if command == '?':
+                return self.send_line("%s\n" % (', '.join(valid_commands.keys())))
+            if command not in valid_commands:
+                if '_' in valid_commands:
+                    return valid_commands['_'](*parts[i:])
+                else:
+                    raise UnrecognizedCommandException(command, valid_commands.keys())
+
+            valid_commands = valid_commands[command]
+            if hasattr(valid_commands, '__call__'):
+                return valid_commands(*parts[i + 1:])
+
         if hasattr(valid_commands, '__call__'):
-            return valid_commands(*parts[i + 1:])
+            return valid_commands()
+        if '_' in valid_commands:
+            return valid_commands['_']()
+        raise UnrecognizedCommandException('', [])
 
-    if hasattr(valid_commands, '__call__'):
-        return valid_commands()
-    if '_' in valid_commands:
-        return valid_commands['_']()
-    raise UnrecognizedCommandException('', [])
+    def send_line(self, message):
+        self.send(message + '\n')
 
-
-def handle_message(message, *kwargs):
-    if not message or len(message.strip()) == 0:
-        return
-
-    message = message.strip()
-
-    parts = message.split(' ')
-
-    try:
-        handle_command(*parts)
-    except UnrecognizedCommandException as e:
-        connection.send("Unrecognized command '" + e.command.strip() + "'.")
-        if e.valid_commands:
-            connection.send(" Valid commands are:\n%s\n" % (', '.join(e.valid_commands)))
-    except InsufficientCommandParametersException as e:
-        connection.send("Expected %s parameter\n" % e.param)
+    def send(self, data):
+        self._socket.send(data)
 
 
-def handle_close():
-    pass
+class CLIHandler(BaseCLIHandler):
+    def __init__(self, *args, **kwargs):
+        super(CLIHandler, self).__init__(*args, **kwargs)
+        self._handlers = {
+            'add': {
+                'host': self.domain_add
+            },
+            'list': {
+                'hosts': self.domain_list,
+                'cdn': self.cdn_list
+            }
+        }
 
+    def domain_add(self, host=None):
+        if not host:
+            raise InsufficientCommandParametersException('host')
 
-def handle_connection(conn, addr, looper):
-    global connection
-    connection = conn
-    logging.debug("New CLI connection established with %s" % str(addr))
-    looper.register_socket(connection, handle_message, handle_close)
+        result_host = common.add_domain(host)
+        if result_host:
+            self.send_line("Host '%s' activated" % result_host)
+        else:
+            self.send_line("Host '%s' could not be activated, see logs for more information" % host)
+
+    def domain_list(self):
+        hosts = Host.select()
+        for host in hosts:
+            self.send_line("%*s: %s" % (20, host.url, host.cdn.id))
+
+    def cdn_list(self):
+        cdns = CDN.select()
+        for cdn in cdns:
+            self.send_line("%*s:  %s" % (15, cdn.id, ' '.join(cdn.addresses)))
 
 
 class UnrecognizedCommandException(Exception):
@@ -87,3 +110,9 @@ class InsufficientCommandParametersException(Exception):
         self.param = param
         if self.param:
             self.param = self.param.strip()
+
+
+def handle_connection(conn, addr, looper):
+    handler = CLIHandler(conn)
+    logging.debug("New CLI connection established with %s" % str(addr))
+    looper.register_socket(conn, handler.on_data, handler.on_close)

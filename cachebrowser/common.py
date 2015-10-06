@@ -18,12 +18,13 @@ def add_domain(url):
     # If already exists then skip
     try:
         Host.get(url=host)
-        logging.info("Domain %s already exists in the LocalDNS, skipping add request" % host)
+        logging.info("Domain %s is already active, skipping add request" % host)
         return
     except Host.DoesNotExist:
         pass
 
-    bootstrapper.bootstrap_host(host)
+    if not bootstrapper.bootstrap_host(host):
+        return
 
     return host
 

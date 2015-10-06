@@ -19,7 +19,7 @@ _cdn_db = {
 def bootstrap_host(hostname):
     if hostname not in _host_db:
         logging.info("Host %s could not be bootstrapped" % hostname)
-        return
+        return False
 
     cdn_id = _host_db[hostname]
 
@@ -30,6 +30,8 @@ def bootstrap_host(hostname):
         cdn = CDN.get(id=cdn_id)
 
     Host.create(url=hostname, cdn=cdn)
+
+    return True
 
 
 def bootstrap_cdn(cdn_id):

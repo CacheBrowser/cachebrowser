@@ -9,6 +9,7 @@ DIRTY = 1
 
 db = None
 
+
 def initialize_database(db_filename):
     global db
     is_db_new = not os.path.isfile(db_filename)
@@ -70,6 +71,13 @@ class CDN(object):
             return self.get_addresses()
 
     @staticmethod
+    def select():
+        cursor = db.execute("select * from cdn")
+        items = cursor.fetchall()
+        hosts = map(lambda item: CDN(id=item[0], name=item[1]), items)
+        return list(hosts)
+
+    @staticmethod
     def get(id):
         if id in CDN._cache:
             return CDN._cache[id]
@@ -119,6 +127,13 @@ class Host(object):
             db.execute('insert into hosts values (?, ?)', (self.url, self._cdn))
             db.commit()
             self._new = False
+
+    @staticmethod
+    def select():
+        cursor = db.execute("select * from hosts")
+        items = cursor.fetchall()
+        hosts = map(lambda item: Host(url=item[0], cdn=item[1]), items)
+        return list(hosts)
 
     @staticmethod
     def get(url):

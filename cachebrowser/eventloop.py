@@ -1,5 +1,6 @@
 from collections import defaultdict
 import logging
+import platform
 import socket
 import select
 import traceback
@@ -133,7 +134,15 @@ class KqueueLoop(object):
     def close(self):
         self._kqueue.close()
 
-looper = EventLoop(KqueueLoop)
+
+_impl = None
+_platform = platform.system()
+if _platform == 'Darwin':
+    _impl = KqueueLoop
+elif _platform == 'Linux':
+    _impl = select.epoll
+
+looper = EventLoop(_impl)
 
 
 def test_loop():

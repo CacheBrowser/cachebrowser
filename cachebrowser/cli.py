@@ -15,7 +15,6 @@ class BaseCLIHandler(object):
     def on_data(self, data, *kwargs):
         if data is None or len(data.strip()) == 0:
             return
-        logging.debug(data)
 
         message = data.strip()
         parts = message.split(' ')

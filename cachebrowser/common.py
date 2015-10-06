@@ -19,7 +19,7 @@ def add_domain(url):
     try:
         Host.get(url=host)
         logging.info("Domain %s is already active, skipping add request" % host)
-        return
+        return host
     except Host.DoesNotExist:
         pass
 

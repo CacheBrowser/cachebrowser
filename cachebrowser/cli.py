@@ -1,9 +1,33 @@
 import logging
+from cachebrowser import http
 from cachebrowser.models import Host, CDN
 
 import common
 
 __all__ = ['handle_message']
+
+
+def handle_connection(conn, addr, looper):
+    handler = CLIHandler(conn)
+    logging.debug("New CLI connection established with %s" % str(addr))
+    looper.register_socket(conn, handler.on_data, handler.on_close)
+
+
+class UnrecognizedCommandException(Exception):
+    def __init__(self, command, valid_commands=None):
+        self.command = command
+        if self.command:
+            self.command = self.command.strip()
+        self.valid_commands = valid_commands
+        if self.valid_commands:
+            self.valid_commands = list(map(lambda x: x.strip(), self.valid_commands))
+
+
+class InsufficientCommandParametersException(Exception):
+    def __init__(self, param):
+        self.param = param
+        if self.param:
+            self.param = self.param.strip()
 
 
 class BaseCLIHandler(object):
@@ -70,10 +94,14 @@ class CLIHandler(BaseCLIHandler):
             'list': {
                 'hosts': self.domain_list,
                 'cdn': self.cdn_list
-            }
+            },
+            'get': self.make_request
         }
 
     def domain_add(self, host=None):
+        """
+        Activate a host with CacheBrowser
+        """
         if not host:
             raise InsufficientCommandParametersException('host')
 
@@ -84,34 +112,23 @@ class CLIHandler(BaseCLIHandler):
             self.send_line("Host '%s' could not be activated, see logs for more information" % host)
 
     def domain_list(self):
+        """
+        List the active hosts
+        """
         hosts = Host.select()
         for host in hosts:
             self.send_line("%*s: %s" % (20, host.url, host.cdn.id))
 
     def cdn_list(self):
+        """
+        List CDNs registered with CacheBrowser
+        """
         cdns = CDN.select()
         for cdn in cdns:
             self.send_line("%*s:  %s" % (15, cdn.id, ' '.join(cdn.addresses)))
 
-
-class UnrecognizedCommandException(Exception):
-    def __init__(self, command, valid_commands=None):
-        self.command = command
-        if self.command:
-            self.command = self.command.strip()
-        self.valid_commands = valid_commands
-        if self.valid_commands:
-            self.valid_commands = list(map(lambda x: x.strip(), self.valid_commands))
-
-
-class InsufficientCommandParametersException(Exception):
-    def __init__(self, param):
-        self.param = param
-        if self.param:
-            self.param = self.param.strip()
-
-
-def handle_connection(conn, addr, looper):
-    handler = CLIHandler(conn)
-    logging.debug("New CLI connection established with %s" % str(addr))
-    looper.register_socket(conn, handler.on_data, handler.on_close)
+    def make_request(self, url, *args):
+        """
+        Make a http request using CacheBrowser
+        """
+        self.send_line(http.request(url))

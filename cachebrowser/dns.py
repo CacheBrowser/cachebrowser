@@ -1,6 +1,7 @@
 from models import CDN, Host
 import socket
 
+
 def resolve_host(hostname):
     # Check if host exists in database
 

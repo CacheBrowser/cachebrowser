@@ -16,9 +16,9 @@ def resolve_host(hostname):
         if addresses is None or len(addresses) == 0:
             _bootstrap_cdn(cdn)
 
-        return cdn.addresses[0]  # make it random?
+        return cdn.addresses[0], True  # make it random?
     except Host.DoesNotExist:
-        return _dns_request(hostname)
+        return _dns_request(hostname), False
 
 
 def _bootstrap_host(host):

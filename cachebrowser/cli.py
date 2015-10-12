@@ -1,5 +1,5 @@
 import logging
-from cachebrowser import http
+import http
 from cachebrowser.models import Host, CDN
 
 import common
@@ -131,4 +131,4 @@ class CLIHandler(BaseCLIHandler):
         """
         Make a http request using CacheBrowser
         """
-        self.send_line(http.request(url))
+        self.send_line(http.request(url).body)

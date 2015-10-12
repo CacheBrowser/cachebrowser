@@ -12,6 +12,8 @@ db = None
 
 def initialize_database(db_filename):
     global db
+    if db is not None:
+        return
     is_db_new = not os.path.isfile(db_filename)
     db = sqlite3.connect(db_filename)
 
@@ -22,7 +24,6 @@ def initialize_database(db_filename):
                 logging.debug(sql)
                 db.execute(sql)
                 db.commit()
-
 
 class CDN(object):
     schema = [
@@ -167,3 +168,6 @@ class Host(object):
 
     class DoesNotExist(Exception):
         pass
+
+
+initialize_database('/tmp/cachebrowser.db')

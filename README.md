@@ -14,7 +14,7 @@ cachebrowser
 ## Using CacheBrowser
 Once  running you could request a website through CacheBrowser like this:
 ```
-wget http://localhost:9000?v='http://www.nbc.com'
+wget http://localhost:9000?v=http://www.nbc.com
 ```
 
 You could also run a command with CacheBrowser:

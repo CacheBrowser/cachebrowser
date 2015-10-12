@@ -1,6 +1,7 @@
+import copy
 import json
 import logging
-
+import http
 import common
 
 
@@ -30,10 +31,18 @@ class BaseAPIHandler(object):
         handler = self._handlers.get(message['action'], None)
 
         if handler:
-            response = handler(message)
-            if response is not None:
-                response['messageId'] = message['messageId']
-            self.send_message(response)
+            def callback(response, send_json=True):
+                if response is None:
+                    return
+                if send_json:
+                    if 'messageId' in message:
+                        response['messageId'] = message['messageId']
+                    self.send_message(response)
+                else:
+                    self.send(response)
+                self._socket.close()
+            handler(message, callback)
+
             return
 
         self.send_message({
@@ -55,23 +64,49 @@ class APIHandler(BaseAPIHandler):
         super(APIHandler, self).__init__(*args, **kwargs)
         self._handlers = {
             'add host': self.action_add_host,
-            'check host': self.action_check_host
+            'check host': self.action_check_host,
+            'get': self.get
         }
 
-    def action_add_host(self, message):
+    def action_add_host(self, message, cb):
         host = common.add_domain(message['host'])
-        return {
+        cb({
             'result': 'success',
             'host': host
-        }
+        })
 
-    def action_check_host(self, message):
+    def action_check_host(self, message, cb):
         is_active = common.is_host_active(message['host'])
 
-        return {
+        cb({
             'result': 'active' if is_active else 'inactive',
             'host': message['host']
-        }
+        })
+
+    def get(self, message, cb):
+        def callback(response):
+            if message.get('json', False):
+                response_message = {
+                    'status': response.status,
+                    'reason': response.reason
+                }
+                if message.get('headers', True):
+                    response_message['headers'] = response.headers
+                if message.get('raw', False):
+                    response_message['raw'] = response.get_raw()
+                if message.get('body', True):
+                    response_message['body'] = response.body
+                cb(response_message, send_json=True)
+            else:
+                if message.get('raw', False):
+                    cb(response.get_raw(), send_json=False)
+                else:
+                    cb(response.body, send_json=False)
+
+        keys = ['url', 'target', 'method', 'scheme', 'port']
+        kwargs = {k: message[k] for k in keys if k in message}
+        kwargs['callback'] = callback
+        http.request(**kwargs)
 
 
 def handle_connection(con, addr, looper):

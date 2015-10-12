@@ -1,0 +1,76 @@
+#!python
+
+import argparse
+import json
+import socket
+import sys
+import StringIO
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="CacheBrowser GET")
+    parser.add_argument('url', help="Url to request")
+    parser.add_argument('target', nargs='?', default=None, help="Server to use for the request")
+    parser.add_argument('-p', '--port', default=4242, type=int, dest='port', help="CacheBrowser CLI port")
+    parser.add_argument('-s', '--status', action='store_true', dest='print_status', help="Print only the status of the response")
+    parser.add_argument('-t', '--title', action='store_true', dest='print_title', help="Print only the title of the response page")
+    parser.add_argument('--headers', action='store_true', dest='print_headers', help="Print the request and response headers only")
+    parser.add_argument('-r', '--raw', action='store_true', dest='raw', help="Print the raw messages")
+    parser.add_argument('-v', '--verbose', action='store_true', dest='verbose', help="Print more details")
+    return parser.parse_args()
+
+
+def print_response(args, response):
+    response = json.loads(response)
+
+    if args.print_status:
+        print(response['status'])
+    elif args.print_headers:
+        for header in response['headers']:
+            print("%s: %s" % (header.upper(), response['headers'][header]))
+
+
+def run(args):
+    buff = StringIO.StringIO()
+    json_response = False
+    message = {
+        'action': 'get',
+        'url': args.url,
+        'json': False
+    }
+
+    if args.print_headers or args.print_status:
+        json_response = True
+        message['json'] = True
+        message['body'] = False
+
+    if args.target:
+        message['target'] = args.target
+    if args.raw:
+        message['raw'] = True
+
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect(('127.0.0.1', args.port))
+
+        sock.send('%s\r\n' % json.dumps(message))
+
+        while True:
+            resp = sock.recv(1024)
+            if not len(resp):
+                break
+            if json_response:
+                buff.write(resp)
+            else:
+                sys.stdout.write(resp)
+        sock.close()
+    except socket.error as e:
+        sys.stderr.write("Couldn't connect to CacheBrowser, is CacheBrowser running?\n")
+        return
+
+    if json_response:
+        print_response(args, buff.getvalue())
+
+if __name__ == '__main__':
+    args = parse_args()
+    run(args)

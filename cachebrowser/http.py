@@ -1,5 +1,6 @@
 import os
 import socket
+import threading
 from cachebrowser import dns
 import httplib
 import logging
@@ -11,15 +12,19 @@ from cachebrowser.common import silent_fail
 from cachebrowser.eventloop import looper
 
 
-def request(url, method='GET', headers=None, port=None, scheme='http', callback=None):
+def request(url, method='GET', target=None, headers=None, port=None, scheme='http', callback=None):
     if not headers: headers = {}
     if '://' not in url:
         url = scheme + '://' + url
     parsed_url = urlparse.urlparse(url, scheme=scheme)
 
-    target, cachebrowsed = dns.resolve_host(parsed_url.hostname)
+    if target:
+        target, cachebrowsed = dns.resolve_host(target, use_cachebrowser_db=False)
+    else:
+        target, cachebrowsed = dns.resolve_host(parsed_url.hostname)
+
     # if not cachebrowsed:
-    #     target = parsed_url.hostname
+    # target = parsed_url.hostname
 
     headers = headers or {}
     for header in headers.keys():
@@ -53,12 +58,16 @@ def request(url, method='GET', headers=None, port=None, scheme='http', callback=
     # looper.register_socket(sock, on_data, on_close)
 
     sock.send(http_request.get_raw())
-    while 1:
-        buf = sock.recv(1024)
-        on_data(buf)
-        if not len(buf):
-            on_close()
-            break
+
+    def recv():
+        while 1:
+            buf = sock.recv(1024)
+            on_data(buf)
+            if not len(buf):
+                on_close()
+                break
+
+    threading.Thread(target=recv).start()
 
 
 def handle_connection(conn, addr, looper):
@@ -124,6 +133,7 @@ class HttpHandler(object):
             # re.sub('((?:(?:http|https):/)?.*/.*)', 'http://127.0.0.1:5003/v='
             self.send(raw_response)
             self._socket.close()
+
         request(self.url, method=self.method, headers=self.headers, callback=on_response)
 
 
@@ -136,40 +146,45 @@ class HttpRequest(object):
             self.http_request = HttpRequest()
 
         def write(self, data):
+            self._buffer.seek(0, os.SEEK_END)
             self._buffer.write(data)
-            self._buffer.seek(self._pos)
+            self._parse()
 
-            if self._state == 'body':
+        def _parse(self):
+            while self._pos != self._buffer.len:
                 self._buffer.seek(self._pos)
-                self.http_request.body += self._buffer.read()
-                self._pos = self._buffer.pos
-                self.http_request.raw = self._buffer.getvalue()
-                return self.http_request
 
-            line = self._buffer.readline()
-            if not line.endswith('\n'):
-                return
-
-            self._pos = self._buffer.pos
-
-            if self._state == 'request':
-                match = re.match("(?:GET|POST|PUT|DELETE|HEAD) (.+) \w+", line)
-                if match is None:
-                    raise ValueError("Invalid request line: %s" % line)
-                self.http_request.method = match.group(1)
-                self.http_request.path = match.group(2)
-                self._state = 'headers'
-            elif self._state == 'headers':
-                match = re.match("^\s*$", line)
-                if match is not None:
-                    self._state = 'body'
+                if self._state == 'body':
+                    self._buffer.seek(self._pos)
+                    self.http_request.body += self._buffer.read()
+                    self._pos = self._buffer.pos
                     self.http_request.raw = self._buffer.getvalue()
                     return self.http_request
 
-                match = re.match("(.+): .+", line)
-                if match is None:
-                    raise ValueError("Invalid header: %s" % line)
-                self.http_request.headers[match.group(1)] = match.group(2)
+                line = self._buffer.readline()
+                if not line.endswith('\n'):
+                    return
+
+                self._pos = self._buffer.pos
+
+                if self._state == 'request':
+                    match = re.match("(?:GET|POST|PUT|DELETE|HEAD) (.+) \w+", line)
+                    if match is None:
+                        raise ValueError("Invalid request line: %s" % line)
+                    self.http_request.method = match.group(1)
+                    self.http_request.path = match.group(2)
+                    self._state = 'headers'
+                elif self._state == 'headers':
+                    match = re.match("^\s*$", line)
+                    if match is not None:
+                        self._state = 'body'
+                        self.http_request.raw = self._buffer.getvalue()
+                        return self.http_request
+
+                    match = re.match("(.+): .+", line)
+                    if match is None:
+                        raise ValueError("Invalid header: %s" % line)
+                    self.http_request.headers[match.group(1)] = match.group(2)
 
     def __init__(self):
         self.method = None
@@ -203,39 +218,45 @@ class HttpResponse(object):
         def write(self, data):
             self._buffer.seek(0, os.SEEK_END)
             self._buffer.write(data)
-            self._buffer.seek(self._pos)
 
-            if self._state == 'body':
+            self._parse()
+
+        def _parse(self):
+            while self._pos != self._buffer.len:
                 self._buffer.seek(self._pos)
-                self.http_response.body += self._buffer.read()
-                self._pos = self._buffer.pos
-                self.http_response.raw = self._buffer.getvalue()
-                return self.http_response
 
-            line = self._buffer.readline()
-            if not line.endswith('\n'):
-                return
-
-            self._pos = self._buffer.pos
-
-            if self._state == 'status':
-                match = re.match('.+ (\d+) (.+)', line)
-                if match is None:
-                    raise ValueError("Invalid Http Response status line: %s" % line)
-                self.http_response.status = int(match.group(1))
-                self.http_response.reason = match.group(2)
-                self._state = 'headers'
-            elif self._state == 'headers':
-                match = re.match("^\s*$", line)
-                if match is not None:
-                    self._state = 'body'
+                if self._state == 'body':
+                    self._buffer.seek(self._pos)
+                    self.http_response.body += self._buffer.read()
+                    self._pos = self._buffer.pos
                     self.http_response.raw = self._buffer.getvalue()
                     return self.http_response
 
-                match = re.match("(.+): (.+)", line)
-                if match is None:
-                    raise ValueError("Invalid header: %s" % line)
-                self.http_response.headers[match.group(1)] = match.group(2)
+                line = self._buffer.readline()
+                if not line.endswith('\n'):
+                    return
+
+                self._pos = self._buffer.pos
+
+                if self._state == 'status':
+                    match = re.match('.+ (\d+) (.+)', line)
+                    if match is None:
+                        raise ValueError("Invalid Http Response status line: %s" % line)
+                    self.http_response.status = int(match.group(1))
+                    self.http_response.reason = match.group(2)
+                    self._state = 'headers'
+
+                elif self._state == 'headers':
+                    match = re.match("^\s*$", line)
+                    if match is not None:
+                        self._state = 'body'
+                        self.http_response.raw = self._buffer.getvalue()
+                        return self.http_response
+
+                    match = re.match("(.+): (.+)", line)
+                    if match is None:
+                        raise ValueError("Invalid header: %s" % line)
+                    self.http_response.headers[match.group(1)] = match.group(2)
 
     def __init__(self):
         self.status = None

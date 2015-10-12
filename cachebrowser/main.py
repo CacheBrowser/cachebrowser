@@ -38,7 +38,7 @@ def run_cachebrowser():
 
     looper = eventloop.looper
     looper.register_server(4242, api.handle_connection)
-    looper.register_server(5001, cli.handle_connection)
+    looper.register_server(5100, cli.handle_connection)
     looper.register_server(5002, proxy.handle_connection)
     looper.register_server(9000, http.handle_connection)
 

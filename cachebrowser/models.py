@@ -1,3 +1,4 @@
+from settings import settings
 import logging
 import sqlite3
 import os
@@ -25,6 +26,16 @@ def initialize_database(db_filename):
                 db.execute(sql)
                 db.commit()
 
+    return db
+
+
+def get_db():
+    global db
+    if db is None:
+        initialize_database(settings['database'])
+    return db
+
+
 class CDN(object):
     schema = [
         "create table cdn (id varchar(15) primary key, name varchar(20));",
@@ -48,8 +59,8 @@ class CDN(object):
             if len(dirty_addresses) != 0:
                 values = map(lambda addr: ("('%s', '%s')" % (self.id, addr)), dirty_addresses)
                 sql = "insert into cdn_ip values %s;" % ",".join(values)
-                db.execute(sql)
-        db.commit()
+                get_db().execute(sql)
+        get_db().commit()
 
     def add_address(self, address):
         if self._addresses is None:
@@ -73,7 +84,7 @@ class CDN(object):
 
     @staticmethod
     def select():
-        cursor = db.execute("select * from cdn")
+        cursor = get_db().execute("select * from cdn")
         items = cursor.fetchall()
         hosts = map(lambda item: CDN(id=item[0], name=item[1]), items)
         return list(hosts)
@@ -83,7 +94,7 @@ class CDN(object):
         if id in CDN._cache:
             return CDN._cache[id]
 
-        cursor = db.execute("select * from cdn where id=?", (id,))
+        cursor = get_db().execute("select * from cdn where id=?", (id,))
         item = cursor.fetchone()
 
         if item is None:
@@ -125,13 +136,13 @@ class Host(object):
 
     def save(self):
         if self._new:
-            db.execute('insert into hosts values (?, ?)', (self.url, self._cdn))
-            db.commit()
+            get_db().execute('insert into hosts values (?, ?)', (self.url, self._cdn))
+            get_db().commit()
             self._new = False
 
     @staticmethod
     def select():
-        cursor = db.execute("select * from hosts")
+        cursor = get_db().execute("select * from hosts")
         items = cursor.fetchall()
         hosts = map(lambda item: Host(url=item[0], cdn=item[1]), items)
         return list(hosts)
@@ -141,7 +152,7 @@ class Host(object):
         if url in Host._cache:
             return Host._cache[url]
 
-        cursor = db.execute("select * from hosts where url=?", (url,))
+        cursor = get_db().execute("select * from hosts where url=?", (url,))
         item = cursor.fetchone()
 
         if item is None:

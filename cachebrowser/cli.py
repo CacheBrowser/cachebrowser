@@ -131,4 +131,6 @@ class CLIHandler(BaseCLIHandler):
         """
         Make a http request using CacheBrowser
         """
-        self.send_line(http.request(url).body)
+        def callback(response):
+            self.send_line(response.body)
+        http.request(url, callback=callback)

@@ -39,10 +39,14 @@ class BaseCLIHandler(object):
     def on_data(self, data, *kwargs):
         if data is None or len(data.strip()) == 0:
             return
-
         message = data.strip()
         parts = message.split(' ')
+        self.handle_command(parts)
 
+    def on_close(self):
+        pass
+
+    def handle_command(self, *parts):
         try:
             self._handle_command(*parts)
         except UnrecognizedCommandException as e:
@@ -51,9 +55,6 @@ class BaseCLIHandler(object):
                 self.send_line(" Valid commands are:\n%s\n" % (', '.join(e.valid_commands)))
         except InsufficientCommandParametersException as e:
             self.send_line("Expected %s parameter\n" % e.param)
-
-    def on_close(self):
-        pass
 
     def _handle_command(self, *parts):
         valid_commands = self._handlers
@@ -88,9 +89,7 @@ class CLIHandler(BaseCLIHandler):
     def __init__(self, *args, **kwargs):
         super(CLIHandler, self).__init__(*args, **kwargs)
         self._handlers = {
-            'add': {
-                'host': self.domain_add
-            },
+            'bootstrap': self.domain_add,
             'list': {
                 'hosts': self.domain_list,
                 'cdn': self.cdn_list
@@ -127,10 +126,10 @@ class CLIHandler(BaseCLIHandler):
         for cdn in cdns:
             self.send_line("%*s:  %s" % (15, cdn.id, ' '.join(cdn.addresses)))
 
-    def make_request(self, url, *args):
+    def make_request(self, url, target=None, *args):
         """
         Make a http request using CacheBrowser
         """
         def callback(response):
             self.send_line(response.body)
-        http.request(url, callback=callback)
+        http.request(url, target=target, callback=callback)

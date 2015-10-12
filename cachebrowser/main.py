@@ -16,7 +16,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="CacheBrowser")
     parser.add_argument('-d', '-daemon', action='store_true', dest='daemon', help="run in daemon mode")
     parser.add_argument('-s', '-socket', dest='socket', help="cachebrowser socket")
-    parser.add_argument('url', nargs='?', default=None, help='Retrieve the given url using CacheBrowser and then exit')
+    parser.add_argument('command', nargs='*', default=None, help='A cachebrowser command to execute and exit')
     args = parser.parse_args()
     settings.update_from_args(vars(args))
 
@@ -45,10 +45,14 @@ def run_cachebrowser():
     looper.start()
 
 
-def make_cachebrowser_request(url):
-    def callback(response):
-        print(response.body)
-    http.request(url, callback=callback)
+def run_command(command):
+    class InlineCLIHandler(cli.CLIHandler):
+        def __init__(self):
+            super(InlineCLIHandler, self).__init__(None)
+            self.send = sys.stdout.write
+
+    handler = InlineCLIHandler()
+    handler.handle_command(*command)
 
 
 def main():
@@ -56,9 +60,9 @@ def main():
     init_logging()
     models.initialize_database(settings['database'])
 
-    url = settings.get('url', None)
-    if url:
-        make_cachebrowser_request(url)
+    command = settings.get('command', None)
+    if command:
+        run_command(command)
         return
 
     if settings.get('daemon', False):

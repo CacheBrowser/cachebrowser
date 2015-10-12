@@ -12,6 +12,11 @@ cachebrowser
 ```
 
 ## Using CacheBrowser
+Once  running you could request a website through CacheBrowser like this:
+```
+wget http://localhost:9000?v='http://www.nbc.com'
+```
+
 You could also run a command with CacheBrowser:
 ```
 cachebrowser <command>
@@ -36,3 +41,4 @@ cachebrowser get http://www.nbc.com
 
 cachebrowser get https://www.istockphoto.com 69.31.76.91
 ```
+

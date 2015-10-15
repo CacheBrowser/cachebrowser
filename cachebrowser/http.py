@@ -72,7 +72,7 @@ def request(url, method='GET', target=None, headers=None, port=None, scheme='htt
 
 def handle_connection(conn, addr, looper):
     handler = HttpHandler(conn)
-    logging.debug("New HTTP connection established with %s" % str(addr))
+    # logging.debug("New HTTP connection established with %s" % str(addr))
     looper.register_socket(conn, handler.on_data, handler.on_close)
 
 
@@ -89,8 +89,8 @@ class HttpHandler(object):
             self._buffer.write(data)
             all_data = self._buffer.getvalue()
             if '\r\n\r\n' in all_data:
-                self._parse_request()
-                self._send_upstream_request()
+                if self._parse_request():
+                    self._send_upstream_request()
         except:
             self._socket.close()
             raise
@@ -105,7 +105,7 @@ class HttpHandler(object):
         self._buffer.seek(0)
         request_line = self._buffer.readline()  # e.g. GET /v?v='http://www.nbc.com' HTTP/1.1
 
-        match = re.match("(GET|POST|PUT|DELETE|HEAD) (.+) \w+", request_line)
+        match = re.match("(GET|POST|PUT|DELETE|HEAD) (.+) .+", request_line)
         if match is None:
             raise ValueError("Invalid HTTP request %s" % request_line)
 
@@ -118,7 +118,9 @@ class HttpHandler(object):
 
         url_param = params.get('v', None)  # e.g. http://www.nbc.com
         if url_param is None or len(url_param) == 0:
-            raise ValueError("No request url received in HTTP request")
+            logging.warning("Skipping %s" % whole_url.strip())
+            return
+            # raise ValueError("No request url received in HTTP request")
         self.url = url_param[0]
 
         for line in self._buffer.readlines():
@@ -127,13 +129,16 @@ class HttpHandler(object):
                 continue
             self.headers[match.group(1)] = match.group(2)
 
+        return True
+
     def _send_upstream_request(self):
         def on_response(response):
             raw_response = response.get_raw()
-            # re.sub('((?:(?:http|https):/)?.*/.*)', 'http://127.0.0.1:5003/v='
+            raw_response = re.sub('((?:src|href|ng-src|ng-href)\s*=\s*)[\'"]((?:(?:http|https):/)?.*/.*)[\'"]', r'\1"http://127.0.0.1:9000/?v=\2"', raw_response)
             self.send(raw_response)
             self._socket.close()
 
+        logging.info("%s %s" % (self.method, self.url))
         request(self.url, method=self.method, headers=self.headers, callback=on_response)
 
 

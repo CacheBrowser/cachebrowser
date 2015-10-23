@@ -16,7 +16,7 @@ def initialize_database(db_filename):
     if db is not None:
         return
     is_db_new = not os.path.isfile(db_filename)
-    db = sqlite3.connect(db_filename)
+    db = sqlite3.connect(db_filename, check_same_thread=False)
 
     if is_db_new:
         logging.debug("No existing database found, creating database at %s" % db_filename)
@@ -58,8 +58,9 @@ class CDN(object):
             dirty_addresses = [addr for addr in self._addresses if self._addresses[addr] == DIRTY]
             if len(dirty_addresses) != 0:
                 values = map(lambda addr: ("('%s', '%s')" % (self.id, addr)), dirty_addresses)
-                sql = "insert into cdn_ip values %s;" % ",".join(values)
-                get_db().execute(sql)
+                for val in values:
+                    sql = "insert into cdn_ip values %s;" % val
+                    get_db().execute(sql)
         get_db().commit()
 
     def add_address(self, address):

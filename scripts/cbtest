@@ -12,6 +12,7 @@ import StringIO
 
 hostnames = [
     'www.istockphoto.com',
+    'www.tipico.com',
     'www.nbc.com',
     'www.airbnb.com',
     'www.goldbet.com',
@@ -28,8 +29,10 @@ servers = [
     '192.189.138.182'
 ]
 
+
 class TimeoutError(Exception):
     pass
+
 
 def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
     def decorator(func):

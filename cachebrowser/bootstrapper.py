@@ -8,11 +8,12 @@ _host_db = {
     'www.wsj.com': 'akamai',
     'www.change.org': 'cloudfare',
     'www.surfeasy.com': 'cloudfare',
-    'www.istockphoto.com': 'akamai'
+    'www.istockphoto.com': 'akamai',
+    'www.tipico.com': 'akamai'
 }
 
 _cdn_db = {
-    'akamai': ['69.31.76.91'],#['23.208.91.198'],  # , '23.218.210.7'],
+    'akamai': ['192.189.138.182', '69.31.76.91', '23.208.91.198',  '23.218.210.7'],
     'cloudfare': ['104.16.4.13']
 }
 

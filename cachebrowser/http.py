@@ -12,7 +12,7 @@ from cachebrowser.common import silent_fail
 from cachebrowser.eventloop import looper
 
 
-def request(url, method='GET', target=None, headers=None, port=None, scheme='http', callback=None):
+def request(url, method='GET', target=None, headers=None, port=None, scheme='http', stream=False, callback=None):
     if not headers: headers = {}
     if '://' not in url:
         url = scheme + '://' + url
@@ -31,8 +31,8 @@ def request(url, method='GET', target=None, headers=None, port=None, scheme='htt
         if ':' in header:
             del headers[header]
     headers["Host"] = parsed_url.hostname
-    if "Connection" not in headers or True:
-        headers["Connection"] = "Close"
+    # if "Connection" not in headers or True:
+    #     headers["Connection"] = "Close"
 
     http_request = HttpRequest()
     http_request.method = method
@@ -47,27 +47,39 @@ def request(url, method='GET', target=None, headers=None, port=None, scheme='htt
     response_builder = HttpResponse.Builder()
 
     def on_data(data):
-        response_builder.write(data)
+        if stream:
+            callback(data)
+        else:
+            response_builder.write(data)
 
     def on_close():
-        http_response = response_builder.http_response
-        if callback is not None:
-            callback(http_response)
+        if not stream:
+            http_response = response_builder.http_response
+            if callback is not None:
+                callback(http_response)
 
     # TODO not working don't know why
     # looper.register_socket(sock, on_data, on_close)
 
+    # print("----UPSTREAM %s ------" % target)
+    # print(re.sub('\r', '%', http_request.get_raw()))
+    # print("------------------")
     sock.send(http_request.get_raw())
 
     def recv():
-        while 1:
+        while True:
             buf = sock.recv(1024)
+            # print("----DOWNSTREAM %s ------" % target)
+            # print(buf)
+            # print("------------------------")
             on_data(buf)
             if not len(buf):
                 on_close()
                 break
 
-    threading.Thread(target=recv).start()
+    t = threading.Thread(target=recv)
+    t.daemon = True
+    t.start()
 
 
 def handle_connection(conn, addr, looper):
@@ -150,6 +162,9 @@ class HttpRequest(object):
             self._pos = 0
             self.http_request = HttpRequest()
 
+        def is_ready(self):
+            return self._state == 'body'
+
         def write(self, data):
             self._buffer.seek(0, os.SEEK_END)
             self._buffer.write(data)
@@ -173,7 +188,7 @@ class HttpRequest(object):
                 self._pos = self._buffer.pos
 
                 if self._state == 'request':
-                    match = re.match("(?:GET|POST|PUT|DELETE|HEAD) (.+) \w+", line)
+                    match = re.match("(GET|POST|PUT|DELETE|HEAD) (.+) \w+", line)
                     if match is None:
                         raise ValueError("Invalid request line: %s" % line)
                     self.http_request.method = match.group(1)
@@ -186,7 +201,7 @@ class HttpRequest(object):
                         self.http_request.raw = self._buffer.getvalue()
                         return self.http_request
 
-                    match = re.match("(.+): .+", line)
+                    match = re.match("(.+): (.+)", line)
                     if match is None:
                         raise ValueError("Invalid header: %s" % line)
                     self.http_request.headers[match.group(1)] = match.group(2)
@@ -204,7 +219,7 @@ class HttpRequest(object):
             buff.write('%s %s HTTP/1.1\r\n' % (self.method, self.path))
 
             for header in self.headers:
-                buff.write('%s: %s\r\n' % (header, self.headers[header]))
+                buff.write('%s: %s\r\n' % (header, self.headers[header].strip()))  # strip is important
             buff.write('\r\n')
             if self.body:
                 buff.write(self.body)
@@ -282,4 +297,3 @@ class HttpResponse(object):
                 buff.write(self.body)
             self.raw = buff.getvalue()
         return self.raw
-

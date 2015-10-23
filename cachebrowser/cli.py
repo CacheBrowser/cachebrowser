@@ -41,7 +41,7 @@ class BaseCLIHandler(object):
             return
         message = data.strip()
         parts = message.split(' ')
-        self.handle_command(parts)
+        self.handle_command(*parts)
 
     def on_close(self):
         pass

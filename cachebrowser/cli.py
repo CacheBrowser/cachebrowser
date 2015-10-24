@@ -1,38 +1,14 @@
 import logging
+from cachebrowser.network import Connection
 import http
 from cachebrowser.models import Host, CDN
 
 import common
 
-__all__ = ['handle_message']
 
-
-def handle_connection(conn, addr, looper):
-    handler = CLIHandler(conn)
-    logging.debug("New CLI connection established with %s" % str(addr))
-    looper.register_socket(conn, handler.on_data, handler.on_close)
-
-
-class UnrecognizedCommandException(Exception):
-    def __init__(self, command, valid_commands=None):
-        self.command = command
-        if self.command:
-            self.command = self.command.strip()
-        self.valid_commands = valid_commands
-        if self.valid_commands:
-            self.valid_commands = list(map(lambda x: x.strip(), self.valid_commands))
-
-
-class InsufficientCommandParametersException(Exception):
-    def __init__(self, param):
-        self.param = param
-        if self.param:
-            self.param = self.param.strip()
-
-
-class BaseCLIHandler(object):
-    def __init__(self, sock):
-        self._socket = sock
+class BaseCLIHandler(Connection):
+    def __init__(self, *args, **kwargs):
+        super(BaseCLIHandler, self).__init__(*args, **kwargs)
         self._handlers = {}
 
     @common.silent_fail(log=True)
@@ -43,8 +19,8 @@ class BaseCLIHandler(object):
         parts = message.split(' ')
         self.handle_command(*parts)
 
-    def on_close(self):
-        pass
+    def on_connect(self):
+        logging.debug("New CLI connection established with %s" % str(self.address))
 
     def handle_command(self, *parts):
         try:
@@ -80,9 +56,6 @@ class BaseCLIHandler(object):
 
     def send_line(self, message):
         self.send(message + '\n')
-
-    def send(self, data):
-        self._socket.send(data)
 
 
 class CLIHandler(BaseCLIHandler):
@@ -133,3 +106,20 @@ class CLIHandler(BaseCLIHandler):
         def callback(response):
             self.send_line(response.body)
         http.request(url, target=target, callback=callback)
+
+
+class UnrecognizedCommandException(Exception):
+    def __init__(self, command, valid_commands=None):
+        self.command = command
+        if self.command:
+            self.command = self.command.strip()
+        self.valid_commands = valid_commands
+        if self.valid_commands:
+            self.valid_commands = list(map(lambda x: x.strip(), self.valid_commands))
+
+
+class InsufficientCommandParametersException(Exception):
+    def __init__(self, param):
+        self.param = param
+        if self.param:
+            self.param = self.param.strip()

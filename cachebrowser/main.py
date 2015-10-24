@@ -1,12 +1,13 @@
 import argparse
 import logging
 import sys
+import gevent
+from cachebrowser.network import ServerRack
 import cli
 import proxy
 
 from settings import settings
 from daemon import Daemon
-import eventloop
 import api
 import models
 import http
@@ -36,13 +37,15 @@ def run_cachebrowser():
     logging.info("Cachebrowser running...")
     logging.debug("Waiting for connections...")
 
-    looper = eventloop.looper
-    looper.register_server(4242, api.handle_connection)
-    looper.register_server(5100, cli.handle_connection)
-    looper.register_server(5002, proxy.handle_connection)
-    looper.register_server(9000, http.handle_connection)
+    rack = ServerRack()
+    rack.add_server(port=5100, handler=cli.CLIHandler)
+    rack.add_server(port=5200, handler=api.APIHandler)
+    # looper.register_server(port=5002, handler=proxy.handle_connection)
+    # looper.register_server(port=9000, handler=http.handle_connection)
+    # looper.start()
 
-    looper.start()
+    rack.start_all()
+    rack.join()
 
 
 def run_command(command):

@@ -1,20 +1,17 @@
-import copy
+from cachebrowser.network import Connection
 import json
 import logging
 import http
 import common
 
 
-__all__ = ['handle_connection']
-
-
-class BaseAPIHandler(object):
-    def __init__(self, sock):
-        self._socket = sock
+class BaseAPIHandler(Connection):
+    def __init__(self, *args, **kwargs):
+        super(BaseAPIHandler, self).__init__(*args, **kwargs)
         self._handlers = {}
 
     @common.silent_fail(log=True)
-    def on_data(self, data, *kwargs):
+    def on_data(self, data):
         if data is None or len(data.strip()) == 0:
             return
         logging.debug(data)
@@ -49,14 +46,11 @@ class BaseAPIHandler(object):
             'error': 'Unrecognized action'
         })
 
-    def on_close(self):
-        pass
+    def on_connect(self):
+        logging.debug("New API connection established with %s" % str(self.address))
 
     def send_message(self, message):
         self.send(json.dumps(message) + '\n')
-
-    def send(self, data):
-        self._socket.send(data)
 
 
 class APIHandler(BaseAPIHandler):
@@ -107,9 +101,3 @@ class APIHandler(BaseAPIHandler):
         kwargs = {k: message[k] for k in keys if k in message}
         kwargs['callback'] = callback
         http.request(**kwargs)
-
-
-def handle_connection(con, addr, looper):
-    api_handler = APIHandler(con)
-    logging.debug("New API connection established with %s" % str(addr))
-    looper.register_socket(con, api_handler.on_data, api_handler.on_close)

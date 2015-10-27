@@ -27,7 +27,8 @@ class ProxyConnection(Connection):
         self.on_local_data(data)
 
     def on_connect(self):
-        logging.debug("New proxy connection established with %s" % str(self.address))
+        pass
+        # logging.debug("New proxy connection established with %s" % str(self.address))
 
     @silent_fail(log=True)
     def on_local_data(self, data):
@@ -148,14 +149,17 @@ class HttpSchema(object):
         url = http_request.path
         parsed_url = urlparse.urlparse(url)
         try:
-            Host.get(url=parsed_url.hostname)
-            url = url.replace('http', 'https')
+            host = Host.get(url=parsed_url.hostname)
+            if host.ssl:
+                url = url.replace('http', 'https')
             self.cachebrowsed = True
         except Host.DoesNotExist:
             pass
 
         logging.info("[%s] %s %s" % (http_request.method, url, '<CACHEBROWSED>' if self.cachebrowsed else ''))
-        response = http.request(url, raw_request=http_request.get_raw())
+        request = http_request.get_raw()
+        # request = re.sub(r'^(GET|POST|PUT|DELETE|HEAD) http[s]?://[^/]+/(.+) (\w+)', r'\1 /\2 \3', request)
+        response = http.request(url, raw_request=request)
 
         self._connection.start_remote(response)
 

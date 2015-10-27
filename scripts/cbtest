@@ -10,6 +10,8 @@ import socket
 from functools import wraps
 import StringIO
 
+CACHEBROWSER = ('127.0.0.1', 5200)
+
 hostnames = [
     'www.istockphoto.com',
     'www.tipico.com',
@@ -72,7 +74,7 @@ def run_get(url, target):
 
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect(('127.0.0.1', 4242))
+        sock.connect(CACHEBROWSER)
 
         sock.send('%s\r\n' % json.dumps(message))
 

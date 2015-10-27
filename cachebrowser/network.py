@@ -75,6 +75,9 @@ class Connection(object):
     def send(self, data):
         self.socket.send(data)
 
+    def close(self):
+        self.socket.close()
+
     def on_connect(self):
         pass
 

@@ -37,7 +37,7 @@ class BaseAPIHandler(Connection):
                     self.send_message(response)
                 else:
                     self.send(response)
-                self._socket.close()
+                self.close()
             handler(message, callback)
 
             return

@@ -2,14 +2,14 @@ import logging
 from models import Host, CDN
 
 _host_db = {
-    'nbc.com': 'akamai',
-    'www.nbc.com': 'akamai',
-    'www.bloomberg.com': 'akamai',
-    'www.wsj.com': 'akamai',
-    'www.change.org': 'cloudfare',
-    'www.surfeasy.com': 'cloudfare',
-    'www.istockphoto.com': 'akamai',
-    'www.tipico.com': 'akamai'
+    'nbc.com': ('akamai', False),
+    'www.nbc.com': ('akamai', False),
+    'www.bloomberg.com': ('akamai', True),
+    'www.wsj.com': ('akamai', False),
+    'www.change.org': ('cloudfare', False),
+    'www.surfeasy.com': ('cloudfare', False),
+    'www.istockphoto.com': ('akamai', False),
+    'www.tipico.com': ('akamai', True)
 }
 
 _cdn_db = {
@@ -23,7 +23,7 @@ def bootstrap_host(hostname):
         logging.info("Host %s could not be bootstrapped" % hostname)
         return False
 
-    cdn_id = _host_db[hostname]
+    cdn_id, uses_ssl = _host_db[hostname]
 
     try:
         cdn = CDN.get(id=cdn_id)
@@ -31,7 +31,7 @@ def bootstrap_host(hostname):
         bootstrap_cdn(cdn_id)
         cdn = CDN.get(id=cdn_id)
 
-    Host.create(url=hostname, cdn=cdn)
+    Host.create(url=hostname, cdn=cdn, ssl=uses_ssl)
 
     return True
 

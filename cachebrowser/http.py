@@ -145,6 +145,7 @@ class HttpRequest(object):
                     if match is not None:
                         if self.content_length:
                             self._state = 'body'
+                            continue
                         else:
                             self._state = 'done'
                             self.http_request.raw = self._buffer.getvalue()
@@ -176,78 +177,7 @@ class HttpRequest(object):
                 buff.write(self.body)
             self.raw = buff.getvalue()
         return self.raw
-#
-#
-# class HttpResponse(object):
-#     class Builder(object):
-#         def __init__(self):
-#             self._buffer = StringIO.StringIO()
-#             self._pos = 0
-#             self._state = 'status'
-#             self.http_response = HttpResponse()
-#
-#         def write(self, data):
-#             self._buffer.seek(0, os.SEEK_END)
-#             self._buffer.write(data)
-#
-#             self._parse()
-#
-#         def _parse(self):
-#             while self._pos != self._buffer.len:
-#                 self._buffer.seek(self._pos)
-#
-#                 if self._state == 'body':
-#                     self._buffer.seek(self._pos)
-#                     self.http_response.body += self._buffer.read()
-#                     self._pos = self._buffer.pos
-#                     self.http_response.raw = self._buffer.getvalue()
-#                     return self.http_response
-#
-#                 line = self._buffer.readline()
-#                 if not line.endswith('\n'):
-#                     return
-#
-#                 self._pos = self._buffer.pos
-#
-#                 if self._state == 'status':
-#                     match = re.match('.+ (\d+) (.+)', line)
-#                     if match is None:
-#                         raise ValueError("Invalid Http Response status line: %s" % line)
-#                     self.http_response.status = int(match.group(1))
-#                     self.http_response.reason = match.group(2)
-#                     self._state = 'headers'
-#
-#                 elif self._state == 'headers':
-#                     match = re.match("^\s*$", line)
-#                     if match is not None:
-#                         self._state = 'body'
-#                         self.http_response.raw = self._buffer.getvalue()
-#                         return self.http_response
-#
-#                     match = re.match("(.+): (.+)", line)
-#                     if match is None:
-#                         raise ValueError("Invalid header: %s" % line)
-#                     self.http_response.headers[match.group(1)] = match.group(2)
-#
-#     def __init__(self):
-#         self.status = None
-#         self.reason = None
-#         self.body = ''
-#         self.headers = {}
-#         self.raw = ''
-#
-#     def get_raw(self):
-#         if not self.raw:
-#             buff = StringIO.StringIO()
-#             buff.write('HTTP/1.1 %d %s\r\n' % (self.status, self.reason))
-#
-#             for header in self.headers:
-#                 buff.write('%s: %s\r\n' % (header, self.headers[header]))
-#             buff.write('\r\n')
-#             if self.body:
-#                 buff.write(self.body)
-#             self.raw = buff.getvalue()
-#         return self.raw
+
 
 class HttpConnection(object):
     def __init__(self, sock):

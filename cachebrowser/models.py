@@ -123,12 +123,13 @@ class CDN(object):
 
 class Host(object):
     schema = [
-        "create table hosts (url varchar(127) primary key, cdn varchar(15), foreign key (cdn) references cdn(id));"
+        "create table hosts (url varchar(127) primary key, cdn varchar(15), ssl INTEGER default 0, foreign key (cdn) references cdn(id));"
     ]
     _cache = {}
 
-    def __init__(self, url=None, cdn=None):
+    def __init__(self, url=None, cdn=None, ssl=False):
         self.url = url
+        self.ssl = ssl
         if type(cdn) == CDN:
             self._cdn = cdn.id
         else:
@@ -137,7 +138,7 @@ class Host(object):
 
     def save(self):
         if self._new:
-            get_db().execute('insert into hosts values (?, ?)', (self.url, self._cdn))
+            get_db().execute('insert into hosts values (?, ?, ?)', (self.url, self._cdn, self.ssl))
             get_db().commit()
             self._new = False
 
@@ -145,7 +146,7 @@ class Host(object):
     def select():
         cursor = get_db().execute("select * from hosts")
         items = cursor.fetchall()
-        hosts = map(lambda item: Host(url=item[0], cdn=item[1]), items)
+        hosts = map(lambda item: Host(url=item[0], cdn=item[1], ssl=item[2]), items)
         return list(hosts)
 
     @staticmethod
@@ -166,8 +167,8 @@ class Host(object):
         return host
 
     @staticmethod
-    def create(url, cdn):
-        host = Host(url=url, cdn=cdn)
+    def create(url, cdn, ssl=False):
+        host = Host(url=url, cdn=cdn, ssl=ssl)
         host.save()
         return host
 

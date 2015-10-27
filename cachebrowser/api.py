@@ -78,26 +78,24 @@ class APIHandler(BaseAPIHandler):
         })
 
     def get(self, message, cb):
-        def callback(response):
-            if message.get('json', False):
-                response_message = {
-                    'status': response.status,
-                    'reason': response.reason
-                }
-                if message.get('headers', True):
-                    response_message['headers'] = response.headers
-                if message.get('raw', False):
-                    response_message['raw'] = response.get_raw()
-                if message.get('body', True):
-                    response_message['body'] = response.body
-                cb(response_message, send_json=True)
-            else:
-                if message.get('raw', False):
-                    cb(response.get_raw(), send_json=False)
-                else:
-                    cb(response.body, send_json=False)
-
         keys = ['url', 'target', 'method', 'scheme', 'port']
         kwargs = {k: message[k] for k in keys if k in message}
-        kwargs['callback'] = callback
-        http.request(**kwargs)
+        response = http.request(**kwargs)
+
+        if message.get('json', False):
+            response_message = {
+                'status': response.status,
+                'reason': response.reason
+            }
+            if message.get('headers', True):
+                response_message['headers'] = {k: v for (k, v) in response.getheaders()}
+            if message.get('raw', False):
+                response_message['raw'] = response.read(raw=True)
+            elif message.get('body', True):
+                response_message['body'] = response.read()
+            cb(response_message, send_json=True)
+        else:
+            if message.get('raw', False):
+                cb(response.get_raw(), send_json=False)
+            else:
+                cb(response.body, send_json=False)

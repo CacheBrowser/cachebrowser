@@ -12,11 +12,18 @@ from cachebrowser.common import silent_fail
 from cachebrowser.eventloop import looper
 
 
-def request(url, method='GET', target=None, headers=None, port=None, scheme='http', stream=False, callback=None):
-    if not headers: headers = {}
+def request(url, method=None, target=None, headers=None, port=None, scheme='http', raw_request=None):
+    if raw_request is not None and (headers is not None or method is not None):
+        raise ValueError("Can't specify raw request and request method/headers together")
+
+    headers = headers or {}
+    method = method or 'GET'
+
     if '://' not in url:
         url = scheme + '://' + url
+
     parsed_url = urlparse.urlparse(url, scheme=scheme)
+    path = parsed_url.path or '/'
 
     if target:
         target, cachebrowsed = dns.resolve_host(target, use_cachebrowser_db=False)
@@ -26,69 +33,223 @@ def request(url, method='GET', target=None, headers=None, port=None, scheme='htt
     # if not cachebrowsed:
     # target = parsed_url.hostname
 
-    headers = headers or {}
-    for header in headers.keys():
-        if ':' in header:
-            del headers[header]
-    headers["Host"] = parsed_url.hostname
-    # if "Connection" not in headers or True:
-    #     headers["Connection"] = "Close"
-
-    http_request = HttpRequest()
-    http_request.method = method
-    http_request.path = parsed_url.path or '/'
-    http_request.headers = headers
-
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     if parsed_url.scheme == 'https':
         sock = ssl.wrap_socket(sock)
     sock.connect((target, port or (443 if parsed_url.scheme == 'https' else 80)))
 
-    response_builder = HttpResponse.Builder()
+    if raw_request is None:
+        headers = headers or {}
+        for header in headers.keys():
+            if ':' in header:
+                del headers[header]
+        headers["Host"] = parsed_url.hostname
 
-    def on_data(data):
-        if stream:
-            callback(data)
-        else:
-            response_builder.write(data)
+        http_request = httplib.HTTPConnection(target, 80)
+        http_request.sock = sock
+        http_request.request(method, path, headers=headers)
+        http_request.response_class = HttpResponse
+        response = http_request.getresponse()
+    else:
+        sock.send(raw_request)
+        response = HttpResponse(sock, method=method)
+        response.begin()
 
-    def on_close():
-        if not stream:
-            http_response = response_builder.http_response
-            if callback is not None:
-                callback(http_response)
-
-    # TODO not working don't know why
-    # looper.register_socket(sock, on_data, on_close)
-
-    # print("----UPSTREAM %s ------" % target)
-    # print(re.sub('\r', '%', http_request.get_raw()))
-    # print("------------------")
-    sock.send(http_request.get_raw())
-
-    def recv():
-        while True:
-            buf = sock.recv(1024)
-            # print("----DOWNSTREAM %s ------" % target)
-            # print(buf)
-            # print("------------------------")
-            on_data(buf)
-            if not len(buf):
-                on_close()
-                break
-
-    t = threading.Thread(target=recv)
-    t.daemon = True
-    t.start()
+    return response
 
 
-def handle_connection(conn, addr, looper):
-    handler = HttpHandler(conn)
-    # logging.debug("New HTTP connection established with %s" % str(addr))
-    looper.register_socket(conn, handler.on_data, handler.on_close)
+class HttpResponse(httplib.HTTPResponse):
+    def __init__(self, sock, *args, **kwargs):
+        httplib.HTTPResponse.__init__(self, sock, *args, **kwargs)
+        self.header_buffer = StringIO.StringIO()
+
+        class FPWrapper(object):
+            def __init__(fself, fp):
+                fself.fp = fp
+                fself.read = fself.fp.read
+                fself.close = fself.fp.close
+
+            def readline(fself, *args, **kwargs):
+                line = fself.fp.readline(*args, **kwargs)
+                self.header_buffer.write(line)
+                return line
+
+        self.fp = FPWrapper(self.fp)
+        self._header_pos = 0
+
+    def read(self, amt=None, raw=False, *args, **kwargs):
+        if not raw:
+            return httplib.HTTPResponse.read(self, amt=amt)
+
+        if self._header_pos == self.header_buffer.len:
+            return httplib.HTTPResponse.read(self, amt=amt)
+        self.header_buffer.seek(self._header_pos)
+        res = self.header_buffer.read(amt)
+        self._header_pos = self.header_buffer.pos
+        return res
+
+    def recv(self, *args, **kwargs):
+        return self.read(raw=True, *args, **kwargs)
 
 
-class HttpHandler(object):
+class HttpRequest(object):
+    class Builder(object):
+        def __init__(self):
+            self._buffer = StringIO.StringIO()
+            self._state = 'request'
+            self._pos = 0
+            self.content_length = 0
+            self.http_request = HttpRequest()
+
+        def is_ready(self):
+            return self._state == 'done'
+
+        def write(self, data):
+            self._buffer.seek(0, os.SEEK_END)
+            self._buffer.write(data)
+            self._parse()
+
+        def _parse(self):
+            while self._pos != self._buffer.len:
+                self._buffer.seek(self._pos)
+
+                if self._state == 'body':
+                    self._buffer.seek(self._pos)
+                    # FIXME: Efficiency
+                    data = self._buffer.read()
+                    self.content_length -= len(data)
+                    self.http_request.body += data
+                    self._pos = self._buffer.pos
+                    self.http_request.raw = self._buffer.getvalue()
+
+                    if self.content_length <= 0:
+                        self._state = 'done'
+
+                    return self.http_request
+
+                line = self._buffer.readline()
+                if not line.endswith('\n'):
+                    return
+
+                self._pos = self._buffer.pos
+
+                if self._state == 'request':
+                    match = re.match("(GET|POST|PUT|DELETE|HEAD) (.+) \w+", line)
+                    if match is None:
+                        raise ValueError("Invalid request line: %s" % line)
+                    self.http_request.method = match.group(1)
+                    self.http_request.path = match.group(2)
+                    self._state = 'headers'
+                elif self._state == 'headers':
+                    match = re.match("^\s*$", line)
+                    if match is not None:
+                        if self.content_length:
+                            self._state = 'body'
+                        else:
+                            self._state = 'done'
+                            self.http_request.raw = self._buffer.getvalue()
+                            return self.http_request
+
+                    match = re.match("(.+): (.+)", line)
+                    if match is None:
+                        raise ValueError("Invalid header: %s" % line)
+                    self.http_request.headers[match.group(1)] = match.group(2)
+                    if match.group(1).lower() == 'content-length':
+                        self.content_length = int(match.group(2))
+
+    def __init__(self):
+        self.method = None
+        self.path = None
+        self.headers = {}
+        self.raw = ''
+        self.body = ''
+
+    def get_raw(self):
+        if not self.raw:
+            buff = StringIO.StringIO()
+            buff.write('%s %s HTTP/1.1\r\n' % (self.method, self.path))
+
+            for header in self.headers:
+                buff.write('%s: %s\r\n' % (header, self.headers[header].strip()))  # strip is important
+            buff.write('\r\n')
+            if self.body:
+                buff.write(self.body)
+            self.raw = buff.getvalue()
+        return self.raw
+#
+#
+# class HttpResponse(object):
+#     class Builder(object):
+#         def __init__(self):
+#             self._buffer = StringIO.StringIO()
+#             self._pos = 0
+#             self._state = 'status'
+#             self.http_response = HttpResponse()
+#
+#         def write(self, data):
+#             self._buffer.seek(0, os.SEEK_END)
+#             self._buffer.write(data)
+#
+#             self._parse()
+#
+#         def _parse(self):
+#             while self._pos != self._buffer.len:
+#                 self._buffer.seek(self._pos)
+#
+#                 if self._state == 'body':
+#                     self._buffer.seek(self._pos)
+#                     self.http_response.body += self._buffer.read()
+#                     self._pos = self._buffer.pos
+#                     self.http_response.raw = self._buffer.getvalue()
+#                     return self.http_response
+#
+#                 line = self._buffer.readline()
+#                 if not line.endswith('\n'):
+#                     return
+#
+#                 self._pos = self._buffer.pos
+#
+#                 if self._state == 'status':
+#                     match = re.match('.+ (\d+) (.+)', line)
+#                     if match is None:
+#                         raise ValueError("Invalid Http Response status line: %s" % line)
+#                     self.http_response.status = int(match.group(1))
+#                     self.http_response.reason = match.group(2)
+#                     self._state = 'headers'
+#
+#                 elif self._state == 'headers':
+#                     match = re.match("^\s*$", line)
+#                     if match is not None:
+#                         self._state = 'body'
+#                         self.http_response.raw = self._buffer.getvalue()
+#                         return self.http_response
+#
+#                     match = re.match("(.+): (.+)", line)
+#                     if match is None:
+#                         raise ValueError("Invalid header: %s" % line)
+#                     self.http_response.headers[match.group(1)] = match.group(2)
+#
+#     def __init__(self):
+#         self.status = None
+#         self.reason = None
+#         self.body = ''
+#         self.headers = {}
+#         self.raw = ''
+#
+#     def get_raw(self):
+#         if not self.raw:
+#             buff = StringIO.StringIO()
+#             buff.write('HTTP/1.1 %d %s\r\n' % (self.status, self.reason))
+#
+#             for header in self.headers:
+#                 buff.write('%s: %s\r\n' % (header, self.headers[header]))
+#             buff.write('\r\n')
+#             if self.body:
+#                 buff.write(self.body)
+#             self.raw = buff.getvalue()
+#         return self.raw
+
+class HttpConnection(object):
     def __init__(self, sock):
         self._buffer = StringIO.StringIO()
         self._socket = sock
@@ -153,147 +314,3 @@ class HttpHandler(object):
         logging.info("%s %s" % (self.method, self.url))
         request(self.url, method=self.method, headers=self.headers, callback=on_response)
 
-
-class HttpRequest(object):
-    class Builder(object):
-        def __init__(self):
-            self._buffer = StringIO.StringIO()
-            self._state = 'request'
-            self._pos = 0
-            self.http_request = HttpRequest()
-
-        def is_ready(self):
-            return self._state == 'body'
-
-        def write(self, data):
-            self._buffer.seek(0, os.SEEK_END)
-            self._buffer.write(data)
-            self._parse()
-
-        def _parse(self):
-            while self._pos != self._buffer.len:
-                self._buffer.seek(self._pos)
-
-                if self._state == 'body':
-                    self._buffer.seek(self._pos)
-                    self.http_request.body += self._buffer.read()
-                    self._pos = self._buffer.pos
-                    self.http_request.raw = self._buffer.getvalue()
-                    return self.http_request
-
-                line = self._buffer.readline()
-                if not line.endswith('\n'):
-                    return
-
-                self._pos = self._buffer.pos
-
-                if self._state == 'request':
-                    match = re.match("(GET|POST|PUT|DELETE|HEAD) (.+) \w+", line)
-                    if match is None:
-                        raise ValueError("Invalid request line: %s" % line)
-                    self.http_request.method = match.group(1)
-                    self.http_request.path = match.group(2)
-                    self._state = 'headers'
-                elif self._state == 'headers':
-                    match = re.match("^\s*$", line)
-                    if match is not None:
-                        self._state = 'body'
-                        self.http_request.raw = self._buffer.getvalue()
-                        return self.http_request
-
-                    match = re.match("(.+): (.+)", line)
-                    if match is None:
-                        raise ValueError("Invalid header: %s" % line)
-                    self.http_request.headers[match.group(1)] = match.group(2)
-
-    def __init__(self):
-        self.method = None
-        self.path = None
-        self.headers = {}
-        self.raw = ''
-        self.body = ''
-
-    def get_raw(self):
-        if not self.raw:
-            buff = StringIO.StringIO()
-            buff.write('%s %s HTTP/1.1\r\n' % (self.method, self.path))
-
-            for header in self.headers:
-                buff.write('%s: %s\r\n' % (header, self.headers[header].strip()))  # strip is important
-            buff.write('\r\n')
-            if self.body:
-                buff.write(self.body)
-            self.raw = buff.getvalue()
-        return self.raw
-
-
-class HttpResponse(object):
-    class Builder(object):
-        def __init__(self):
-            self._buffer = StringIO.StringIO()
-            self._pos = 0
-            self._state = 'status'
-            self.http_response = HttpResponse()
-
-        def write(self, data):
-            self._buffer.seek(0, os.SEEK_END)
-            self._buffer.write(data)
-
-            self._parse()
-
-        def _parse(self):
-            while self._pos != self._buffer.len:
-                self._buffer.seek(self._pos)
-
-                if self._state == 'body':
-                    self._buffer.seek(self._pos)
-                    self.http_response.body += self._buffer.read()
-                    self._pos = self._buffer.pos
-                    self.http_response.raw = self._buffer.getvalue()
-                    return self.http_response
-
-                line = self._buffer.readline()
-                if not line.endswith('\n'):
-                    return
-
-                self._pos = self._buffer.pos
-
-                if self._state == 'status':
-                    match = re.match('.+ (\d+) (.+)', line)
-                    if match is None:
-                        raise ValueError("Invalid Http Response status line: %s" % line)
-                    self.http_response.status = int(match.group(1))
-                    self.http_response.reason = match.group(2)
-                    self._state = 'headers'
-
-                elif self._state == 'headers':
-                    match = re.match("^\s*$", line)
-                    if match is not None:
-                        self._state = 'body'
-                        self.http_response.raw = self._buffer.getvalue()
-                        return self.http_response
-
-                    match = re.match("(.+): (.+)", line)
-                    if match is None:
-                        raise ValueError("Invalid header: %s" % line)
-                    self.http_response.headers[match.group(1)] = match.group(2)
-
-    def __init__(self):
-        self.status = None
-        self.reason = None
-        self.body = ''
-        self.headers = {}
-        self.raw = ''
-
-    def get_raw(self):
-        if not self.raw:
-            buff = StringIO.StringIO()
-            buff.write('HTTP/1.1 %d %s\r\n' % (self.status, self.reason))
-
-            for header in self.headers:
-                buff.write('%s: %s\r\n' % (header, self.headers[header]))
-            buff.write('\r\n')
-            if self.body:
-                buff.write(self.body)
-            self.raw = buff.getvalue()
-        return self.raw

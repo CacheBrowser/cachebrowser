@@ -103,9 +103,8 @@ class CLIHandler(BaseCLIHandler):
         """
         Make a http request using CacheBrowser
         """
-        def callback(response):
-            self.send_line(response.body)
-        http.request(url, target=target, callback=callback)
+        response = http.request(url, target=target)
+        self.send_line(response.read())
 
 
 class UnrecognizedCommandException(Exception):

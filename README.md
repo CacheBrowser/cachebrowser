@@ -16,6 +16,7 @@ Once  running you could request a website through CacheBrowser like this:
 ```
 wget http://localhost:9000?v=http://www.nbc.com
 ```
+Or by setting the HTTP proxy on your browser to `localhost:8080`
 
 You could also run a command with CacheBrowser:
 ```

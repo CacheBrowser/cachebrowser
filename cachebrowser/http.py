@@ -9,7 +9,6 @@ import ssl
 import urlparse
 import StringIO
 from cachebrowser.common import silent_fail
-from cachebrowser.eventloop import looper
 
 
 def request(url, method=None, target=None, headers=None, port=None, scheme='http', raw_request=None):

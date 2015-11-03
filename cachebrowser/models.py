@@ -181,6 +181,3 @@ class Host(object):
 
     class DoesNotExist(Exception):
         pass
-
-
-initialize_database('/tmp/cachebrowser.db')

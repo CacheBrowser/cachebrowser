@@ -1,3 +1,6 @@
+import os
+import platform
+
 __all__ = ['settings']
 
 
@@ -9,11 +12,15 @@ class CacheBrowserSettings(dict):
     def __init__(self, *args, **kwargs):
         super(CacheBrowserSettings, self).__init__(*args, **kwargs)
 
+        if platform.system() == 'Windows':
+            self.data_dir = os.path.join(os.environ['ALLUSERSPROFILE'], 'CacheBrowser')
+        else:
+            self.data_dir = '/tmp/'
+
         # Set defaults
-        self['socket'] = '/tmp/cachebrowser.sock'
         self['host'] = '0.0.0.0'
         self['port'] = 9876
-        self['database'] = '/tmp/cachebrowser.db'
+        self['database'] = os.path.join(self.data_dir, 'cachebrowser.db')
 
     def get_or_error(self, key):
         if self.get(key, None):

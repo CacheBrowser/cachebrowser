@@ -2,6 +2,8 @@
 
 CacheBrowser is currently unstable and under active development.
 
+https://cachebrowser.info
+
 ## Installation
 ```
 python setup.py install

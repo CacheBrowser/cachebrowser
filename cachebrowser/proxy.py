@@ -1,15 +1,15 @@
 import urlparse
 import gevent
-from cachebrowser import http
-from cachebrowser.models import Host
-from cachebrowser.network import Connection
+import http
+from models import Host
+from network import Connection
 from common import silent_fail
 import logging
 import socket
 import ssl
 import StringIO
 import re
-import dns
+import resolve
 
 
 class ProxyConnection(Connection):
@@ -211,7 +211,7 @@ class SSLSchema(object):
             return self._connect_upstream(host, port)
 
     def _connect_upstream(self, host, port):
-        ip, cachebrowsed = dns.resolve_host(host)
+        ip, cachebrowsed = resolve.resolve_host(host)
         if not ip:
             return
 

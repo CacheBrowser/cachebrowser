@@ -1,7 +1,9 @@
 import logging
-from cachebrowser.network import Connection
 import http
-from cachebrowser.models import Host, CDN
+import shlex
+import re
+from network import Connection
+from models import Host, CDN
 
 import common
 
@@ -16,15 +18,24 @@ class BaseCLIHandler(Connection):
         if data is None or len(data.strip()) == 0:
             return
         message = data.strip()
-        parts = message.split(' ')
-        self.handle_command(*parts)
+        parts = shlex.split(message)
+        args = []
+        kwargs = {}
+        for part in parts:
+            match = re.match('(.*)=(.*)', part)
+            if match:
+                kwargs[match.group(1)] = match.group(2)
+            else:
+                args.append(part)
+
+        self.handle_command(*args, **kwargs)
 
     def on_connect(self):
         logging.debug("New CLI connection established with %s" % str(self.address))
 
-    def handle_command(self, *parts):
+    def handle_command(self, *args, **kwargs):
         try:
-            self._handle_command(*parts)
+            self._handle_command(*args, **kwargs)
         except UnrecognizedCommandException as e:
             self.send_line("Unrecognized command '" + e.command.strip() + "'.")
             if e.valid_commands:
@@ -32,7 +43,7 @@ class BaseCLIHandler(Connection):
         except InsufficientCommandParametersException as e:
             self.send_line("Expected %s parameter\n" % e.param)
 
-    def _handle_command(self, *parts):
+    def _handle_command(self, *parts, **kwargs):
         valid_commands = self._handlers
         for i in range(len(parts)):
             command = parts[i]
@@ -40,35 +51,41 @@ class BaseCLIHandler(Connection):
                 return self.send_line("%s\n" % (', '.join(valid_commands.keys())))
             if command not in valid_commands:
                 if '_' in valid_commands:
-                    return valid_commands['_'](*parts[i:])
+                    return valid_commands['_'](*parts[i:], **kwargs)
                 else:
                     raise UnrecognizedCommandException(command, valid_commands.keys())
 
             valid_commands = valid_commands[command]
             if hasattr(valid_commands, '__call__'):
-                return valid_commands(*parts[i + 1:])
+                return valid_commands(*parts[i + 1:], **kwargs)
 
         if hasattr(valid_commands, '__call__'):
-            return valid_commands()
+            return valid_commands(**kwargs)
         if '_' in valid_commands:
-            return valid_commands['_']()
+            return valid_commands['_'](**kwargs)
         raise UnrecognizedCommandException('', [])
 
     def send_line(self, message):
         self.send(message + '\n')
 
+    def register_command(self, command, handler):
+        parts = command.split()
+        handlers = self._handlers
+        for part in parts[:-1]:
+            if part not in handlers:
+                handlers[part] = {}
+            handlers = handlers[part]
+        handlers[parts[-1]] = handler
+
 
 class CLIHandler(BaseCLIHandler):
     def __init__(self, *args, **kwargs):
         super(CLIHandler, self).__init__(*args, **kwargs)
-        self._handlers = {
-            'bootstrap': self.domain_add,
-            'list': {
-                'hosts': self.domain_list,
-                'cdn': self.cdn_list
-            },
-            'get': self.make_request
-        }
+
+        self.register_command('bootstrap', self.domain_add)
+        self.register_command('list hosts', self.domain_list)
+        self.register_command('list cdn', self.cdn_list)
+        self.register_command('get', self.make_request)
 
     def domain_add(self, host=None):
         """

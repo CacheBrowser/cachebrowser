@@ -5,23 +5,26 @@ from gevent.server import StreamServer
 
 class ServerRack(object):
     def __init__(self):
-        self.servers = []
+        self.servers = {}
         self._greenlets = []
 
-    def add_server(self, port, handler, ip=None):
+    def add_server(self, name, port, handler, ip=None):
         if not ip:
             ip = '0.0.0.0'
-        server = Server(ip, port, handler)
-        self.servers.append(server)
+        server = Server(name, ip, port, handler)
+        self.servers[name] = server
         return server
+
+    def get_server(self, name):
+        return self.servers.get(name, None)
 
     def start_all(self):
         self._greenlets = []
-        for server in self.servers:
+        for server in self.servers.values():
             self._greenlets.append(server.start())
 
     def stop_all(self):
-        for server in self.servers:
+        for server in self.servers.values():
             server.stop()
 
     def join(self):
@@ -30,9 +33,10 @@ class ServerRack(object):
 
 
 class Server(object):
-    def __init__(self, ip, port, handler=None):
+    def __init__(self, name, ip, port, handler=None):
+        self.name = name
         self.server = StreamServer((ip, port), self._handle)
-        self.connection_handler = handler
+        self.handler = handler
 
     def start(self):
         return self.server.start()
@@ -41,8 +45,8 @@ class Server(object):
         self.server.stop()
 
     def _handle(self, sock, address):
-        if self.connection_handler:
-            self.connection_handler(sock, address=address).loop()
+        if self.handler:
+            self.handler(sock, address=address).loop()
 
 
 class Connection(object):

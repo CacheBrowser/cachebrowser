@@ -1,19 +1,24 @@
 import os
 import socket
 import threading
-from cachebrowser import dns
+import resolve
 import httplib
 import logging
 import re
 import ssl
 import urlparse
 import StringIO
-from cachebrowser.common import silent_fail
+from common import silent_fail
 
 
-def request(url, method=None, target=None, headers=None, port=None, scheme='http', raw_request=None):
+def request(url, method=None, target=None, cachebrowse=None, headers=None, port=None, scheme='http', raw_request=None):
     if raw_request is not None and (headers is not None or method is not None):
         raise ValueError("Can't specify raw request and request method/headers together")
+    if target and cachebrowse:
+        raise ValueError("Can't specify target and use cachebrowse together")
+
+    if cachebrowse is None:
+        cachebrowse = True
 
     headers = headers or {}
     method = method or 'GET'
@@ -25,9 +30,9 @@ def request(url, method=None, target=None, headers=None, port=None, scheme='http
     path = parsed_url.path or '/'
 
     if target:
-        target, cachebrowsed = dns.resolve_host(target, use_cachebrowser_db=False)
+        target, cachebrowsed = resolve.resolve_host(target, use_cachebrowser_db=cachebrowse)
     else:
-        target, cachebrowsed = dns.resolve_host(parsed_url.hostname)
+        target, cachebrowsed = resolve.resolve_host(parsed_url.hostname, use_cachebrowser_db=cachebrowse)
 
     # if not cachebrowsed:
     # target = parsed_url.hostname

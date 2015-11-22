@@ -1,1 +1,1 @@
-__author__ = 'hadi'
+import fingerprint

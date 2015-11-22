@@ -5,6 +5,8 @@ import urlparse
 import traceback
 
 
+context = {}
+
 def add_domain(url):
     """
     Add a domain to cachebrowser

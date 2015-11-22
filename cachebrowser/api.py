@@ -1,4 +1,4 @@
-from cachebrowser.network import Connection
+from network import Connection
 import json
 import logging
 import http
@@ -6,6 +6,8 @@ import common
 
 
 class BaseAPIHandler(Connection):
+    json_response_delimeter = '\n'
+
     def __init__(self, *args, **kwargs):
         super(BaseAPIHandler, self).__init__(*args, **kwargs)
         self._handlers = {}
@@ -28,7 +30,7 @@ class BaseAPIHandler(Connection):
         handler = self._handlers.get(message['action'], None)
 
         if handler:
-            def callback(response, send_json=True):
+            def callback(response, send_json=True, end=True):
                 if response is None:
                     return
                 if send_json:
@@ -37,7 +39,8 @@ class BaseAPIHandler(Connection):
                     self.send_message(response)
                 else:
                     self.send(response)
-                self.close()
+                if end:
+                    self.close()
             handler(message, callback)
 
             return
@@ -50,17 +53,19 @@ class BaseAPIHandler(Connection):
         logging.debug("New API connection established with %s" % str(self.address))
 
     def send_message(self, message):
-        self.send(json.dumps(message) + '\n')
+        self.send(json.dumps(message) + self.json_response_delimeter)
+
+    def register_api(self, action, handler):
+        self._handlers[action] = handler
 
 
 class APIHandler(BaseAPIHandler):
     def __init__(self, *args, **kwargs):
         super(APIHandler, self).__init__(*args, **kwargs)
-        self._handlers = {
-            'add host': self.action_add_host,
-            'check host': self.action_check_host,
-            'get': self.get
-        }
+
+        self.register_api('bootstrap', self.action_add_host)
+        self.register_api('check host', self.action_check_host)
+        self.register_api('get', self.action_get)
 
     def action_add_host(self, message, cb):
         host = common.add_domain(message['host'])
@@ -77,7 +82,7 @@ class APIHandler(BaseAPIHandler):
             'host': message['host']
         })
 
-    def get(self, message, cb):
+    def action_get(self, message, cb):
         keys = ['url', 'target', 'method', 'scheme', 'port']
         kwargs = {k: message[k] for k in keys if k in message}
         response = http.request(**kwargs)

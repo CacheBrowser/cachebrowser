@@ -1,106 +1,119 @@
-from network import Connection
+import urlparse
 import json
-import logging
+
+from network import HttpConnectionHandler
 import http
 import common
 
 
-class BaseAPIHandler(Connection):
-    json_response_delimeter = '\n'
+class ResponseOptions(object):
+    def __init__(self, send_json=True, content_type=None, status=200, reason='OK'):
+        self.send_json = send_json
 
+        if content_type is not None:
+            self.content_type = content_type
+        else:
+            self.content_type = 'application/json' if self.send_json else 'text/plain'
+
+        self.status = status
+        self.reason = reason or {
+            200: 'OK',
+            404: 'Not Found',
+            403: 'Forbidden'
+        }.get(self.status, '')
+
+
+class BaseAPIHandler(HttpConnectionHandler):
     def __init__(self, *args, **kwargs):
-        super(BaseAPIHandler, self).__init__(*args, **kwargs)
-        self._handlers = {}
+        self.method_handlers = {}
+        self.send_json = True
 
     @common.silent_fail(log=True)
-    def on_data(self, data):
-        if data is None or len(data.strip()) == 0:
-            return
-        logging.debug(data)
+    def on_request(self, env, start_response):
+        method = env['REQUEST_METHOD'].upper()
+        path = env['PATH_INFO'].lower().strip('/')
 
-        try:
-            message = json.loads(data.strip())
-        except ValueError:
-            logging.error("Invalid JSON recevied: %s (%d)" % (data, len(data)))
-            self.send_message({
-                'error': 'Invalid message'
-            })
+        if method not in self.method_handlers or path not in self.method_handlers[method]:
+            start_response('404 Not Found', [])
             return
 
-        handler = self._handlers.get(message['action'], None)
+        if method == 'GET':
+            request = urlparse.parse_qs(env.get('QUERY_STRING', ''), True)
+            for query in request:
+                if len(request[query]) == 1:
+                    request[query] = request[query][0]
+        else:
+            request = json.loads(env.get('wsgi.input', '{}'))
 
-        if handler:
-            def callback(response, send_json=True, end=True):
-                if response is None:
-                    return
-                if send_json:
-                    if 'messageId' in message:
-                        response['messageId'] = message['messageId']
-                    self.send_message(response)
-                else:
-                    self.send(response)
-                if end:
-                    self.close()
-            handler(message, callback)
+        response = self.method_handlers[method][path](request)
 
-            return
+        if type(response) == tuple:
+            response, options = response
+        else:
+            options = ResponseOptions()
 
-        self.send_message({
-            'error': 'Unrecognized action'
-        })
+        start_response('%d %s' % (options.status, options.reason), [('Content-Type', options.content_type)])
 
-    def on_connect(self):
-        logging.debug("New API connection established with %s" % str(self.address))
+        if options.send_json:
+            yield json.dumps(response)
+        else:
+            yield response
 
-    def send_message(self, message):
-        self.send(json.dumps(message) + self.json_response_delimeter)
+    def register_api(self, method, path, handler):
+        method = method.upper()
+        path = path.lower().strip('/')
 
-    def register_api(self, action, handler):
-        self._handlers[action] = handler
+        if method not in self.method_handlers:
+            self.method_handlers[method] = {}
+
+        self.method_handlers[method][path] = handler
 
 
 class APIHandler(BaseAPIHandler):
     def __init__(self, *args, **kwargs):
         super(APIHandler, self).__init__(*args, **kwargs)
 
-        self.register_api('bootstrap', self.action_add_host)
-        self.register_api('check host', self.action_check_host)
-        self.register_api('get', self.action_get)
+        self.register_api('PUT', '/host/bootstrap', self.action_add_host)
+        self.register_api('GET', '/host/check', self.action_check_host)
+        self.register_api('GET', '/cachebrowse', self.action_get)
 
-    def action_add_host(self, message, cb):
-        host = common.add_domain(message['host'])
-        cb({
+    @staticmethod
+    def action_add_host(request):
+        host = common.add_domain(request['host'])
+        return{
             'result': 'success',
             'host': host
-        })
+        }
 
-    def action_check_host(self, message, cb):
-        is_active = common.is_host_active(message['host'])
+    @staticmethod
+    def action_check_host(request):
+        is_active = common.is_host_active(request['host'])
 
-        cb({
+        return {
             'result': 'active' if is_active else 'inactive',
-            'host': message['host']
-        })
+            'host': request['host']
+        }
 
-    def action_get(self, message, cb):
+    @staticmethod
+    def action_get(request):
         keys = ['url', 'target', 'method', 'scheme', 'port']
-        kwargs = {k: message[k] for k in keys if k in message}
+        kwargs = {k: request[k] for k in keys if k in request}
         response = http.request(**kwargs)
 
-        if message.get('json', False):
+        if request.get('json', False):
             response_message = {
                 'status': response.status,
                 'reason': response.reason
             }
-            if message.get('headers', True):
+            if request.get('headers', True):
                 response_message['headers'] = {k: v for (k, v) in response.getheaders()}
-            if message.get('raw', False):
+            if request.get('raw', False):
                 response_message['raw'] = response.read(raw=True)
-            elif message.get('body', True):
+            elif request.get('body', True):
                 response_message['body'] = response.read()
-            cb(response_message, send_json=True)
+            return response_message
         else:
-            if message.get('raw', False):
-                cb(response.get_raw(), send_json=False)
+            if request.get('raw', False):
+                return response.get_raw(), ResponseOptions(send_json=False)
             else:
-                cb(response.body, send_json=False)
+                return response.body, ResponseOptions(send_json=False)

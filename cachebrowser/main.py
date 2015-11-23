@@ -1,4 +1,4 @@
-from network import ServerRack
+from network import ServerRack, HttpServer
 from settings import settings
 from daemon import Daemon
 from gevent import monkey
@@ -15,6 +15,7 @@ import models
 import http
 
 rack = ServerRack()
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="CacheBrowser")
@@ -39,16 +40,17 @@ def init_logging():
 def load_extensions():
     import extensions
 
+
 def run_cachebrowser():
     logging.info("Cachebrowser running...")
     logging.debug("Waiting for connections...")
 
     monkey.patch_all()
 
-    rack.add_server('cli', port=5100, handler=cli.CLIHandler)
-    rack.add_server('api', port=5200, handler=api.APIHandler)
-    rack.add_server('proxy', port=8080, handler=proxy.ProxyConnection)
-    rack.add_server('http', port=9005, handler=http.HttpConnection)
+    rack.create_server('cli', port=5100, handler=cli.CLIHandler)
+    rack.add_server('api', HttpServer(port=5200, handler=api.APIHandler))
+    rack.create_server('proxy', port=8080, handler=proxy.ProxyConnection)
+    rack.create_server('http', port=9005, handler=http.HttpConnection)
 
     common.context['server_rack'] = rack
     load_extensions()

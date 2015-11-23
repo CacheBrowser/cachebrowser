@@ -8,7 +8,7 @@ import urlparse
 import StringIO
 
 from cachebrowser.common import silent_fail
-from cachebrowser import resolve
+from cachebrowser import dns
 
 
 def request(url, method=None, target=None, cachebrowse=None, headers=None, port=None, scheme='http', raw_request=None):
@@ -30,9 +30,9 @@ def request(url, method=None, target=None, cachebrowse=None, headers=None, port=
     path = parsed_url.path or '/'
 
     if target:
-        target, cachebrowsed = resolve.resolve_host(target, use_cachebrowser_db=cachebrowse)
+        target, cachebrowsed = dns.resolve_host(target, use_cachebrowser_db=cachebrowse)
     else:
-        target, cachebrowsed = resolve.resolve_host(parsed_url.hostname, use_cachebrowser_db=cachebrowse)
+        target, cachebrowsed = dns.resolve_host(parsed_url.hostname, use_cachebrowser_db=cachebrowse)
 
     # if not cachebrowsed:
     # target = parsed_url.hostname

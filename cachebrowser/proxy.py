@@ -9,7 +9,7 @@ from cachebrowser.models import Host
 from cachebrowser.network import ConnectionHandler
 from cachebrowser.common import silent_fail
 from cachebrowser import http
-from cachebrowser import resolve
+from cachebrowser import dns
 
 
 class ProxyConnection(ConnectionHandler):
@@ -211,7 +211,7 @@ class SSLSchema(object):
             return self._connect_upstream(host, port)
 
     def _connect_upstream(self, host, port):
-        ip, cachebrowsed = resolve.resolve_host(host)
+        ip, cachebrowsed = dns.resolve_host(host)
         if not ip:
             return
 

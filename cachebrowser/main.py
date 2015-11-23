@@ -1,8 +1,8 @@
-from gevent import monkey
 import argparse
 import logging
 import sys
 import gevent
+from gevent import monkey
 
 from cachebrowser.network import ServerRack, HttpServer
 from cachebrowser.settings import settings
@@ -34,7 +34,7 @@ def init_logging():
 
 
 def load_extensions():
-    import extensions
+    import cachebrowser.extensions
 
 
 def run_cachebrowser():

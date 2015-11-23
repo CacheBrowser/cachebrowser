@@ -1,6 +1,6 @@
 import logging
-import urlparse
 import traceback
+from six.moves import urllib_parse as urlparse
 
 from cachebrowser.models import Host, CDN
 from cachebrowser import bootstrapper

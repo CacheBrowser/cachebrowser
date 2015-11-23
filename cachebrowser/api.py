@@ -1,5 +1,5 @@
-import urlparse
 import json
+from six.moves import urllib_parse as urlparse
 
 from cachebrowser.network import HttpConnectionHandler
 from cachebrowser import http

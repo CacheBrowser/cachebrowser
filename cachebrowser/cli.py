@@ -2,13 +2,13 @@ import logging
 import http
 import shlex
 import re
-from network import Connection
+from network import ConnectionHandler
 from models import Host, CDN
 
 import common
 
 
-class BaseCLIHandler(Connection):
+class BaseCLIHandler(ConnectionHandler):
     def __init__(self, *args, **kwargs):
         super(BaseCLIHandler, self).__init__(*args, **kwargs)
         self._handlers = {}

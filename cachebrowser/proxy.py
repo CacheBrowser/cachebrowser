@@ -2,7 +2,7 @@ import urlparse
 import gevent
 import http
 from models import Host
-from network import Connection
+from network import ConnectionHandler
 from common import silent_fail
 import logging
 import socket
@@ -12,7 +12,7 @@ import re
 import resolve
 
 
-class ProxyConnection(Connection):
+class ProxyConnection(ConnectionHandler):
     def __init__(self, *args, **kwargs):
         super(ProxyConnection, self).__init__(*args, **kwargs)
         self._buffer = StringIO.StringIO()

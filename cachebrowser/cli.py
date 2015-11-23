@@ -1,11 +1,10 @@
 import logging
-import http
 import shlex
 import re
-from network import ConnectionHandler
-from models import Host, CDN
 
-import common
+from cachebrowser.network import ConnectionHandler
+from cachebrowser.models import Host, CDN
+from cachebrowser import http, common
 
 
 class BaseCLIHandler(ConnectionHandler):

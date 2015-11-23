@@ -1,5 +1,6 @@
 import logging
-from models import Host, CDN
+
+from cachebrowser.models import Host, CDN
 
 _host_db = {
     'nbc.com': ('akamai', False),

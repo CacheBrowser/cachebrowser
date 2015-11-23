@@ -1,14 +1,14 @@
 import os
 import socket
-import threading
-import resolve
 import httplib
 import logging
 import re
 import ssl
 import urlparse
 import StringIO
-from common import silent_fail
+
+from cachebrowser.common import silent_fail
+from cachebrowser import resolve
 
 
 def request(url, method=None, target=None, cachebrowse=None, headers=None, port=None, scheme='http', raw_request=None):

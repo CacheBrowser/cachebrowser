@@ -1,15 +1,15 @@
-import urlparse
-import gevent
-import http
-from models import Host
-from network import ConnectionHandler
-from common import silent_fail
 import logging
 import socket
-import ssl
 import StringIO
 import re
-import resolve
+import urlparse
+import gevent
+
+from cachebrowser.models import Host
+from cachebrowser.network import ConnectionHandler
+from cachebrowser.common import silent_fail
+from cachebrowser import http
+from cachebrowser import resolve
 
 
 class ProxyConnection(ConnectionHandler):

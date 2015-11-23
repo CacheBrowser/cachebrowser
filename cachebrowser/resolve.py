@@ -1,5 +1,6 @@
-from models import CDN, Host
 import socket
+
+from cachebrowser.models import CDN, Host
 
 
 def resolve_host(hostname, use_cachebrowser_db=True):

@@ -1,9 +1,9 @@
 import urlparse
 import json
 
-from network import HttpConnectionHandler
-import http
-import common
+from cachebrowser.network import HttpConnectionHandler
+from cachebrowser import http
+from cachebrowser import common
 
 
 class ResponseOptions(object):

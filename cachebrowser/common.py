@@ -1,11 +1,12 @@
-from models import Host, CDN
 import logging
-import bootstrapper
 import urlparse
 import traceback
 
+from cachebrowser.models import Host, CDN
+from cachebrowser import bootstrapper
 
 context = {}
+
 
 def add_domain(url):
     """

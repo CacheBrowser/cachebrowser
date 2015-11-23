@@ -1,18 +1,14 @@
-from network import ServerRack, HttpServer
-from settings import settings
-from daemon import Daemon
 from gevent import monkey
 import argparse
 import logging
 import sys
 import gevent
-import cli
-import proxy
-import common
 
-import api
-import models
-import http
+from cachebrowser.network import ServerRack, HttpServer
+from cachebrowser.settings import settings
+from cachebrowser.daemon import Daemon
+from cachebrowser import models, http, cli, api, proxy, common
+
 
 rack = ServerRack()
 
@@ -87,4 +83,5 @@ def main():
         run_cachebrowser()
 
 if __name__ == '__main__':
+    __package__ = ''
     main()

@@ -1,7 +1,8 @@
-from settings import settings
 import logging
 import sqlite3
 import os
+
+from cachebrowser.settings import settings
 
 # TODO: limit cache sizes
 

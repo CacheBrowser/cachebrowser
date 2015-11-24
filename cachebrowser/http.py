@@ -3,7 +3,7 @@ import socket
 import logging
 import re
 import ssl
-from io import BytesIO
+from StringIO import StringIO
 from six.moves import http_client as httplib
 from six.moves import urllib_parse as urlparse
 
@@ -65,7 +65,7 @@ def request(url, method=None, target=None, cachebrowse=None, headers=None, port=
 class HttpResponse(httplib.HTTPResponse):
     def __init__(self, sock, *args, **kwargs):
         httplib.HTTPResponse.__init__(self, sock, *args, **kwargs)
-        self.header_buffer = BytesIO()
+        self.header_buffer = StringIO()
 
         class FPWrapper(object):
             def __init__(fself, fp):
@@ -99,7 +99,7 @@ class HttpResponse(httplib.HTTPResponse):
 class HttpRequest(object):
     class Builder(object):
         def __init__(self):
-            self._buffer = BytesIO()
+            self._buffer = StringIO()
             self._state = 'request'
             self._pos = 0
             self.content_length = 0
@@ -171,7 +171,7 @@ class HttpRequest(object):
 
     def get_raw(self):
         if not self.raw:
-            buff = BytesIO()
+            buff = StringIO()
             buff.write('%s %s HTTP/1.1\r\n' % (self.method, self.path))
 
             for header in self.headers:
@@ -185,7 +185,7 @@ class HttpRequest(object):
 
 class HttpConnection(object):
     def __init__(self, sock):
-        self._buffer = BytesIO()
+        self._buffer = StringIO()
         self._socket = sock
         self.url = None
         self.headers = {}

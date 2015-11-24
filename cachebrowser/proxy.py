@@ -2,7 +2,7 @@ import logging
 import socket
 import re
 import gevent
-from io import BytesIO
+from StringIO import StringIO
 from six.moves import urllib_parse as urlparse
 
 from cachebrowser.models import Host
@@ -15,7 +15,7 @@ from cachebrowser import dns
 class ProxyConnection(ConnectionHandler):
     def __init__(self, *args, **kwargs):
         super(ProxyConnection, self).__init__(*args, **kwargs)
-        self._buffer = BytesIO()
+        self._buffer = StringIO()
         self._schema = None
         self._local_socket = self.socket
         self._remote_socket = None
@@ -167,7 +167,7 @@ class HttpSchema(object):
 class SSLSchema(object):
     def __init__(self, connection, buff=None):
         self.connection = connection
-        self._buffer = buff or BytesIO()
+        self._buffer = buff or StringIO()
         self._upstream_started = False
         self._host = None
         self._start_upstream()
@@ -228,7 +228,7 @@ class SSLSchema(object):
         self._host = host
 
         # ! Ref to connection._buffer not updated
-        self._buffer = BytesIO()
+        self._buffer = StringIO()
 
         # !! Why does this line not work here?
         # self.connection.send_local("HTTP/1.1 200 OK\r\n\r\n")

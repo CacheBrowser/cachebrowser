@@ -2,46 +2,10 @@ import logging
 import traceback
 from six.moves import urllib_parse as urlparse
 
-from cachebrowser.models import Host, CDN
-from cachebrowser import bootstrapper
-
 context = {}
 
 
-def add_domain(url):
-    """
-    Add a domain to cachebrowser
-
-    :param url:
-    :return:
-    """
-
-    host = _parse_url(url)
-
-    # If already exists then skip
-    try:
-        Host.get(url=host)
-        logging.info("Domain %s is already active, skipping add request" % host)
-        return host
-    except Host.DoesNotExist:
-        pass
-
-    if not bootstrapper.bootstrap_host(host):
-        return
-
-    return host
-
-
-def is_host_active(url):
-    host = _parse_url(url)
-    try:
-        Host.get(url=host)
-        return True
-    except Host.DoesNotExist:
-        return False
-
-
-def _parse_url(url):
+def extract_url_hostname(url):
     if '://' not in url:
         url = '//' + url
     parsed = urlparse.urlparse(url)

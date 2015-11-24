@@ -1,6 +1,7 @@
 import logging
 import shlex
 import re
+from cachebrowser.bootstrap import bootstrapper, BootstrapError
 
 from cachebrowser.network import ConnectionHandler
 from cachebrowser.models import Host, CDN
@@ -86,18 +87,19 @@ class CLIHandler(BaseCLIHandler):
         self.register_command('list cdn', self.cdn_list)
         self.register_command('get', self.make_request)
 
-    def domain_add(self, host=None):
+    def domain_add(self, hostname=None):
         """
         Activate a host with CacheBrowser
         """
-        if not host:
-            raise InsufficientCommandParametersException('host')
+        if not hostname:
+            raise InsufficientCommandParametersException('hostname')
 
-        result_host = common.add_domain(host)
-        if result_host:
-            self.send_line("Host '%s' activated" % result_host)
-        else:
-            self.send_line("Host '%s' could not be activated, see logs for more information" % host)
+        try:
+            host = bootstrapper.bootstrap(hostname)
+            self.send_line("Host '%s' bootstrapped" % host.hostname)
+        except BootstrapError as e:
+            self.send_line("Host '%s' could not be bootstrapped" % hostname)
+            self.send_line(e.message)
 
     def domain_list(self):
         """

@@ -1,5 +1,8 @@
 import json
 from six.moves import urllib_parse as urlparse
+from cachebrowser.bootstrap import bootstrapper, BootstrapError
+from cachebrowser.common import extract_url_hostname
+from cachebrowser.models import Host, DoesNotExist
 
 from cachebrowser.network import HttpConnectionHandler
 from cachebrowser import http
@@ -79,15 +82,25 @@ class APIHandler(BaseAPIHandler):
 
     @staticmethod
     def action_add_host(request):
-        host = common.add_domain(request['host'])
-        return{
-            'result': 'success',
-            'host': host
-        }
+        try:
+            host = bootstrapper.bootstrap(request['host'])
+            return {
+                'result': 'success',
+                'host': host.hostname
+            }
+        except BootstrapError as e:
+            return {
+                'result': 'fail',
+                'error': e.message
+            }
 
     @staticmethod
     def action_check_host(request):
-        is_active = common.is_host_active(request['host'])
+        hostname = extract_url_hostname(request['host'])
+        try:
+            is_active = Host.get(Host.hostname == hostname).is_active
+        except DoesNotExist:
+            is_active = False
 
         return {
             'result': 'active' if is_active else 'inactive',

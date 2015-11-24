@@ -1,15 +1,14 @@
 import unittest
-from peewee import DoesNotExist
-from cachebrowser.models import initialize_database, Host, CDN
+from cachebrowser.models import initialize_database, Host, CDN, DoesNotExist
 
 
 class ModelsTest(unittest.TestCase):
 
     def test_database(self):
-        initialize_database(":memory:")
+        initialize_database(":memory:", reset=True)
 
-        cdn1 = CDN.create(id="cdn1", name="Sample CDN", edge="1.2.3.4")
-        cdn2 = CDN.create(id="cdn2", name="Sample CDN2", edge="1.2.3.5")
+        cdn1 = CDN.create(id="cdn1", name="Sample CDN", edge_server="1.2.3.4")
+        cdn2 = CDN.create(id="cdn2", name="Sample CDN2", edge_server="1.2.3.5")
         host1 = Host.create(hostname="first.host", cdn=cdn1)
         host2 = Host.create(hostname="second.host", cdn=cdn2)
         host3 = Host.create(hostname="third.host", cdn=cdn1)

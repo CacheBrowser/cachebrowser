@@ -11,11 +11,13 @@ setup(
     maintainer_email='hadi@cs.umass.edu',
     license='',
     packages=['cachebrowser', 'cachebrowser/extensions'],
-    package_data={'': ['*.json']},
+    package_data={'': ['*.json', 'data']},
     scripts=['scripts/cachebrowser'],
     install_requires=[
         'gevent>=1.0.2',
         'six>=1.10.0',
+        'peewee>=2.6.0',
+        'PyYAML>=3.11'
     ],
 )
 

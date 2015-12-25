@@ -1,8 +1,8 @@
-import logging
 import shlex
 import re
-from cachebrowser.bootstrap import bootstrapper, BootstrapError
 
+from cachebrowser.bootstrap import bootstrapper, BootstrapError
+from cachebrowser.common import logger
 from cachebrowser.network import ConnectionHandler
 from cachebrowser.models import Host, CDN
 from cachebrowser import http, common
@@ -30,8 +30,8 @@ class BaseCLIHandler(ConnectionHandler):
 
         self.handle_command(*args, **kwargs)
 
-    def on_connect(self):
-        logging.debug("New CLI connection established with %s" % str(self.address))
+    def on_connect(self, sock, address):
+        logger.debug("New CLI connection established with %s" % str(self.address))
 
     def handle_command(self, *args, **kwargs):
         try:

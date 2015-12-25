@@ -1,4 +1,3 @@
-import logging
 import traceback
 from six.moves import urllib_parse as urlparse
 
@@ -19,7 +18,14 @@ def silent_fail(log=False):
                 return func(*args, **kwargs)
             except Exception as e:
                 if log:
-                    logging.error(traceback.format_exc())
+                    _get_logger().error(traceback.format_exc())
 
         return inner
     return outer
+
+
+def _get_logger():
+    import logging
+    return logging.getLogger('cachebrowser')
+
+logger = _get_logger()

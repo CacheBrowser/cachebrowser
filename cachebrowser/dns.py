@@ -13,11 +13,10 @@ def resolve_host(hostname, use_cachebrowser_db=True):
             if cdn is None:
                 _bootstrap_host(host)
 
-            addresses = cdn.addresses
-            if addresses is None or len(addresses) == 0:
+            if not cdn.edge_server:
                 _bootstrap_cdn(cdn)
 
-            return cdn.addresses[0], True  # make it random?
+            return cdn.edge_server, True
         except Host.DoesNotExist:
             pass
     return _dns_request(hostname), False

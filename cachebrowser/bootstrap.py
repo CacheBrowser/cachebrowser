@@ -39,7 +39,7 @@ class LocalBootstrapSource(BaseBootstrapSource):
                 'edge_server': random.choice(cdn['edge_servers'])
             }
 
-        return self.cdns.get(cdn_id, None)
+        return None
 
     def _load_source(self, filename):
         try:
@@ -89,7 +89,7 @@ class LocalBootstrapSource(BaseBootstrapSource):
         cdn = {
             'id': cdn_data['id'],
             'name': cdn_data.get('name', ''),
-            'edge_servers': cdn_data.get('edges', [])
+            'edge_servers': cdn_data.get('edge_servers', [])
         }
 
         self.cdns[cdn['id']] = cdn
@@ -100,11 +100,13 @@ class BootstrapError(Exception):
 
 
 class HostNotAvailableError(BootstrapError):
-    pass
+    def __init__(self, host):
+        super(HostNotAvailableError, self).__init__("Host '%s' not available" % host)
 
 
 class CDNNotAvailableError(BootstrapError):
-    pass
+    def __init__(self, cdn_id):
+        super(CDNNotAvailableError, self).__init__("CDN '%s' not available" % cdn_id)
 
 
 class BootstrapValidationError(BootstrapError):
@@ -211,7 +213,7 @@ class Bootstrapper(object):
     def _validate_cdn_data(cls, cdn_id, cdn_data):
         for key in ['id', 'edge_server']:
             if key not in cdn_data:
-                raise BootstrapValidationError("invalid host data received, missing '%s' key" % key)
+                raise BootstrapValidationError("invalid cdn data received, missing '%s' key" % key)
 
         if cdn_id != cdn_data['id']:
             raise BootstrapValidationError("host data mismatch. Expecting data for %s but got data for %s"

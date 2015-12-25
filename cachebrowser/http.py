@@ -1,13 +1,12 @@
 import os
 import socket
-import logging
 import re
 import ssl
 from StringIO import StringIO
 from six.moves import http_client as httplib
 from six.moves import urllib_parse as urlparse
 
-from cachebrowser.common import silent_fail
+from cachebrowser.common import silent_fail, logger
 from cachebrowser import dns
 
 
@@ -226,7 +225,7 @@ class HttpConnection(object):
 
         url_param = params.get('v', None)  # e.g. http://www.nbc.com
         if url_param is None or len(url_param) == 0:
-            logging.warning("Skipping %s" % whole_url.strip())
+            logger.warning("Skipping %s" % whole_url.strip())
             return
             # raise ValueError("No request url received in HTTP request")
         self.url = url_param[0]
@@ -246,6 +245,6 @@ class HttpConnection(object):
             self.send(raw_response)
             self._socket.close()
 
-        logging.info("%s %s" % (self.method, self.url))
+        logger.info("%s %s" % (self.method, self.url))
         request(self.url, method=self.method, headers=self.headers, callback=on_response)
 

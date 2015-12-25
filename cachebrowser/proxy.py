@@ -1,4 +1,3 @@
-import logging
 import socket
 import re
 import gevent
@@ -7,7 +6,7 @@ from six.moves import urllib_parse as urlparse
 
 from cachebrowser.models import Host
 from cachebrowser.network import ConnectionHandler
-from cachebrowser.common import silent_fail
+from cachebrowser.common import silent_fail, logger
 from cachebrowser import http
 from cachebrowser import dns
 
@@ -29,7 +28,7 @@ class ProxyConnection(ConnectionHandler):
 
     def on_connect(self, sock, address):
         self._local_socket = sock
-        # logging.debug("New proxy connection established with %s" % str(self.address))
+        # logger.debug("New proxy connection established with %s" % str(self.address))
 
     @silent_fail(log=True)
     def on_local_data(self, data):
@@ -84,7 +83,7 @@ class ProxyConnection(ConnectionHandler):
 
                     self.on_remote_data(buff)
             except Exception as e:
-                logging.error(e)
+                logger.error(e)
         gevent.spawn(remote_reader)
 
     def send_remote(self, data):
@@ -151,13 +150,13 @@ class HttpSchema(object):
         parsed_url = urlparse.urlparse(url)
         try:
             host = Host.get(Host.hostname==parsed_url.hostname)
-            if host.ssl:
+            if host.uses_ssl:
                 url = url.replace('http', 'https')
             self.cachebrowsed = True
         except Host.DoesNotExist:
             pass
 
-        logging.info("[%s] %s %s" % (http_request.method, url, '<CACHEBROWSED>' if self.cachebrowsed else ''))
+        logger.info("[%s] %s %s" % (http_request.method, url, '<CACHEBROWSED>' if self.cachebrowsed else ''))
         request = http_request.get_raw()
         # request = re.sub(r'^(GET|POST|PUT|DELETE|HEAD) http[s]?://[^/]+/(.+) (\w+)', r'\1 /\2 \3', request)
         response = http.request(url, raw_request=request)
@@ -205,10 +204,10 @@ class SSLSchema(object):
             pass
 
         if cachebrowsed:
-            logging.info("[HTTPS] %s:%s  <REJECTED>" % (host, port))
+            logger.info("[HTTPS] %s:%s  <REJECTED>" % (host, port))
             self.connection.close_local()
         else:
-            logging.info("[HTTPS] %s:%s  <PROXYING>" % (host, port))
+            logger.info("[HTTPS] %s:%s  <PROXYING>" % (host, port))
             return self._connect_upstream(host, port)
 
     def _connect_upstream(self, host, port):

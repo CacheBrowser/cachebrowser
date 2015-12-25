@@ -1,5 +1,4 @@
 import argparse
-import logging
 import sys
 import gevent
 from gevent import monkey
@@ -8,7 +7,7 @@ from cachebrowser.network import ServerRack, HttpServer
 from cachebrowser.settings import settings
 from cachebrowser.daemon import Daemon
 from cachebrowser import models, http, cli, api, proxy, common, bootstrap
-
+from cachebrowser.common import logger
 
 rack = ServerRack()
 
@@ -24,7 +23,8 @@ def parse_arguments():
 
 
 def init_logging():
-    root = logging.getLogger()
+    import logging
+    root = logger
     root.setLevel(logging.DEBUG)
 
     ch = logging.StreamHandler(sys.stdout)
@@ -39,8 +39,8 @@ def load_extensions():
 
 
 def run_cachebrowser():
-    logging.info("Cachebrowser running...")
-    logging.debug("Waiting for connections...")
+    logger.info("Cachebrowser running...")
+    logger.debug("Waiting for connections...")
 
     monkey.patch_all()
 

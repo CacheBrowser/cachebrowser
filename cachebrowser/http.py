@@ -40,6 +40,7 @@ def request(url, method=None, target=None, cachebrowse=None, headers=None, port=
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     if parsed_url.scheme == 'https':
         sock = ssl.wrap_socket(sock)
+
     sock.connect((target, port or (443 if parsed_url.scheme == 'https' else 80)))
 
     if raw_request is None:

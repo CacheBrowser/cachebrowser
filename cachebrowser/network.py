@@ -72,7 +72,7 @@ class ConnectionHandler(object):
         self.address = address
         self.alive = True
 
-        self.on_connect()
+        self.on_connect(sock, address)
         self._loop_on_socket()
 
     def _loop_on_socket(self):
@@ -96,7 +96,7 @@ class ConnectionHandler(object):
     def close(self):
         self.socket.close()
 
-    def on_connect(self):
+    def on_connect(self, sock, address):
         pass
 
     def on_data(self, data):

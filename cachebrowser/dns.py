@@ -7,7 +7,7 @@ def resolve_host(hostname, use_cachebrowser_db=True):
     # Check if host exists in database
     if use_cachebrowser_db:
         try:
-            host = Host.get(hostname)
+            host = Host.get(hostname=hostname)
             cdn = host.cdn
 
             if cdn is None:

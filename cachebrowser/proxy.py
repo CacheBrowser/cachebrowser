@@ -17,7 +17,8 @@ class ProxyConnection(ConnectionHandler):
         super(ProxyConnection, self).__init__(*args, **kwargs)
         self._buffer = StringIO()
         self._schema = None
-        self._local_socket = self.socket
+
+        self._local_socket = None
         self._remote_socket = None
 
         self.on_data = self.on_local_data
@@ -26,8 +27,8 @@ class ProxyConnection(ConnectionHandler):
     def on_data(self, data):
         self.on_local_data(data)
 
-    def on_connect(self):
-        pass
+    def on_connect(self, sock, address):
+        self._local_socket = sock
         # logging.debug("New proxy connection established with %s" % str(self.address))
 
     @silent_fail(log=True)
@@ -149,7 +150,7 @@ class HttpSchema(object):
         url = http_request.path
         parsed_url = urlparse.urlparse(url)
         try:
-            host = Host.get(url=parsed_url.hostname)
+            host = Host.get(Host.hostname==parsed_url.hostname)
             if host.ssl:
                 url = url.replace('http', 'https')
             self.cachebrowsed = True
@@ -198,7 +199,7 @@ class SSLSchema(object):
 
         cachebrowsed = False
         try:
-            Host.get(url=host)
+            Host.get(Host.hostname == host)
             cachebrowsed = True
         except Host.DoesNotExist:
             pass

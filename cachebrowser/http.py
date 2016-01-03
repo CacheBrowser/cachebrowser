@@ -33,6 +33,9 @@ def request(url, method=None, target=None, cachebrowse=None, headers=None, port=
     else:
         target, cachebrowsed = dns.resolve_host(parsed_url.hostname, use_cachebrowser_db=cachebrowse)
 
+    if port is None and parsed_url.port:
+        port = parsed_url.port
+
     # if not cachebrowsed:
     # target = parsed_url.hostname
 

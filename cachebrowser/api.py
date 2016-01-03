@@ -1,9 +1,9 @@
 import json
 from six.moves import urllib_parse as urlparse
+
 from cachebrowser.bootstrap import bootstrapper, BootstrapError
 from cachebrowser.common import extract_url_hostname
 from cachebrowser.models import Host, DoesNotExist
-
 from cachebrowser.network import HttpConnectionHandler
 from cachebrowser import http
 from cachebrowser import common
@@ -36,6 +36,10 @@ class BaseAPIHandler(HttpConnectionHandler):
         method = env['REQUEST_METHOD'].upper()
         path = env['PATH_INFO'].lower().strip('/')
 
+        # If the API request is proxied, the path comes as a full url for some reason
+        if '://' in path:
+            path = urlparse.urlparse(path).path.strip('/')
+
         if method not in self.method_handlers or path not in self.method_handlers[method]:
             start_response('404 Not Found', [])
             return
@@ -46,7 +50,8 @@ class BaseAPIHandler(HttpConnectionHandler):
                 if len(request[query]) == 1:
                     request[query] = request[query][0]
         else:
-            request = json.loads(env.get('wsgi.input', '{}'))
+            inp = env.get('wsgi.input', None)
+            request = json.loads(inp.read()) if inp is not None else {}
 
         response = self.method_handlers[method][path](request)
 
@@ -58,9 +63,9 @@ class BaseAPIHandler(HttpConnectionHandler):
         start_response('%d %s' % (options.status, options.reason), [('Content-Type', options.content_type)])
 
         if options.send_json:
-            yield json.dumps(response)
+            return [json.dumps(response)]
         else:
-            yield response
+            return [response]
 
     def register_api(self, method, path, handler):
         method = method.upper()
@@ -82,8 +87,9 @@ class APIHandler(BaseAPIHandler):
 
     @staticmethod
     def action_add_host(request):
+        hostname = urlparse.urlparse(request['host']).netloc
         try:
-            host = bootstrapper.bootstrap(request['host'])
+            host = bootstrapper.bootstrap(hostname)
             return {
                 'result': 'success',
                 'host': host.hostname

@@ -107,7 +107,7 @@ class CLIHandler(BaseCLIHandler):
         """
         hosts = Host.select()
         for host in hosts:
-            self.send_line("%*s: %s" % (20, host.url, host.cdn.id))
+            self.send_line("%*s: %s" % (20, host.hostname, host.cdn.id))
 
     def cdn_list(self):
         """

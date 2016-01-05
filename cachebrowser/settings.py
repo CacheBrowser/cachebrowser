@@ -31,6 +31,10 @@ class CacheBrowserSettings(dict):
             {
                 'type': 'local',
                 'path': 'data/local_bootstrap.yaml'
+            },
+            {
+                'type': 'remote',
+                'url': 'https://www.cachebrowser.info/bootstrap'
             }
         ]
 

@@ -1,8 +1,14 @@
+import json
+import os
 import random
-from cachebrowser.settings import settings
+import urllib
 import yaml
 from yaml.scanner import ScannerError
+from cachebrowser.common import logger
+
+from cachebrowser.settings import settings
 from cachebrowser.models import Host, CDN, DoesNotExist
+from cachebrowser.http import request
 
 
 class BootstrapSourceError(Exception):
@@ -25,6 +31,7 @@ class LocalBootstrapSource(BaseBootstrapSource):
         self.hosts = {}
         self.cdns = {}
 
+        self.filename = filename
         self._load_source(filename)
 
     def lookup_host(self, hostname):
@@ -78,7 +85,7 @@ class LocalBootstrapSource(BaseBootstrapSource):
         }
 
         if 'ssl' in host_data:
-            host['uses_ssl'] = host_data['ssl']
+            host['ssl'] = host_data['ssl']
 
         self.hosts[host['hostname']] = host
 
@@ -93,6 +100,40 @@ class LocalBootstrapSource(BaseBootstrapSource):
         }
 
         self.cdns[cdn['id']] = cdn
+
+    def __str__(self):
+        return self.filename
+
+
+class RemoteBootstrapSource(BaseBootstrapSource):
+    def __init__(self, server_url):
+        super(RemoteBootstrapSource, self).__init__()
+
+        if '://' not in server_url:
+            raise BootstrapSourceError('Invalid remote bootstrap server URL')
+
+        self.server_url = server_url
+
+    def lookup_host(self, hostname):
+        return self._request('host/%s' % hostname)
+
+    def lookup_cdn(self, cdn_id):
+        return self._request('cdn/%s' % cdn_id)
+
+    def _request(self, path):
+        response = request(os.path.join(self.server_url, path))
+        if response.status == 404:
+            return None
+        elif response.status != 200:
+            raise BootstrapSourceError('Remote bootstrapper request failed: %d' % response.status)
+
+        try:
+            return json.loads(response.read())
+        except ValueError:
+            raise BootstrapSourceError('Invalid JSON response from remote bootstrap server')
+
+    def __str__(self):
+        return self.server_url
 
 
 class BootstrapError(Exception):
@@ -125,12 +166,13 @@ class Bootstrapper(object):
 
     def bootstrap(self, hostname):
         hostname = self._validate_host_name(hostname)
+        host_source = None
 
         # Lookup Host from sources
         try:
-            host_data = self._lookup_host(hostname)
+            host_data, host_source = self._lookup_host(hostname)
             host, host_created = self._get_or_create_host(hostname, create=True)
-            host.uses_ssl = host_data['uses_ssl']
+            host.uses_ssl = host_data['ssl']
 
             cdn, cdn_created = self._get_or_create_cdn(host_data['cdn'], create=True)
             host.cdn = cdn
@@ -144,10 +186,12 @@ class Bootstrapper(object):
         # Bootstrap CDN from sources
         if cdn_created or cdn.edge_server is None:
             try:
-                cdn_data = self._lookup_cdn(cdn.id)
+                cdn_data, cdn_source = self._lookup_cdn(cdn.id)
                 cdn.name = cdn_data['name']
                 cdn.edge_server = cdn_data['edge_server']
                 cdn.save()
+
+                logger.info("CDN '%s' bootstrapped from '%s'" % (cdn, str(cdn_source)))
             except CDNNotAvailableError:
                 host.is_active = False
                 host.save()
@@ -155,20 +199,23 @@ class Bootstrapper(object):
 
         host.is_active = True
         host.save()
+
+        if host_source is not None:
+            logger.info("Host '%s' bootstrapped from '%s'" % (host, str(host_source)))
         return host
 
     def _lookup_host(self, hostname):
         for source in self.sources:
             host_data = source.lookup_host(hostname)
             if host_data:
-                return self._validate_host_data(hostname, host_data)
+                return self._validate_host_data(hostname, host_data), source
         raise HostNotAvailableError(hostname)
 
     def _lookup_cdn(self, cdn_id):
         for source in self.sources:
             cdn_data = source.lookup_cdn(cdn_id)
             if cdn_data:
-                return self._validate_cdn_data(cdn_id, cdn_data)
+                return self._validate_cdn_data(cdn_id, cdn_data), source
         raise CDNNotAvailableError(cdn_id)
 
     @classmethod
@@ -205,7 +252,7 @@ class Bootstrapper(object):
                 raise BootstrapValidationError("host data mismatch. Expecting data for %s but got data for %s"
                                                % (hostname, host_data['hostname']))
 
-        host_data.setdefault('uses_ssl', False)
+        host_data.setdefault('ssl', False)
 
         return host_data
 
@@ -231,5 +278,6 @@ def initialize_bootstrapper(bootstrapper=bootstrapper):
     for source_config in sources:
         if source_config['type'] == 'local':
             source = LocalBootstrapSource(source_config['path'])
-
+        elif source_config['type'] == 'remote':
+            source = RemoteBootstrapSource(source_config['url'])
         bootstrapper.add_source(source)

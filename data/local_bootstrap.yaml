@@ -1,33 +1,11 @@
 - type: cdn
-  id: akamai
-  name: Akamai
+  id: cbcdn
+  name: CacheBrowser CDN (Cloudfront)
   edge_servers:
-    - 192.189.138.182
-    - 69.31.76.91
-    - 23.208.91.198
-    - 23.218.210.7
+    - 54.230.27.22
+    - 54.230.27.181
 
 - type: host
-  name: nbc.com
-  ssl: false
-  cdn: akamai
-
-- type: host
-  name: www.nbc.com
-  ssl: false
-  cdn: akamai
-
-- type: host
-  name: www.bloomberg.com
+  name: www.cachebrowser.info
   ssl: true
-  cdn: akamai
-
-- type: host
-  name: www.wsj.com
-  ssl: false
-  cdn: akamai
-
-- type: host
-  name: www.tipico.com
-  ssl: true
-  cdn: akamai
+  cdn: cbcdn

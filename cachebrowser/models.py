@@ -11,6 +11,12 @@ class CDN(peewee.Model):
     class Meta:
         database = db
 
+    def __str__(self):
+        return self.name
+
+    def __unicode__(self):
+        return self.__str__()
+
 
 class Host(peewee.Model):
     hostname = peewee.CharField(primary_key=True)

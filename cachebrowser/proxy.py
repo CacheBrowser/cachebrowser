@@ -204,8 +204,10 @@ class SSLSchema(object):
             pass
 
         if cachebrowsed:
-            logger.info("[HTTPS] %s:%s  <REJECTED>" % (host, port))
-            self.connection.close_local()
+            #logger.info("[HTTPS] %s:%s  <REJECTED>" % (host, port))
+            #self.connection.close_local()
+            logger.info("[HTTPS] %s:%s  <CACHEBROWSED>" % (host, port))
+            return self._connect_upstream(host, port)
         else:
             logger.info("[HTTPS] %s:%s  <PROXYING>" % (host, port))
             return self._connect_upstream(host, port)

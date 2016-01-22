@@ -51,7 +51,8 @@ class BaseAPIHandler(HttpConnectionHandler):
                     request[query] = request[query][0]
         else:
             inp = env.get('wsgi.input', None)
-            request = json.loads(inp.read()) if inp is not None else {}
+            inp_val = inp.read() if inp is not None else ''
+            request = json.loads(inp_val) if len(inp_val) > 0 else {}
 
         response = self.method_handlers[method][path](request)
 

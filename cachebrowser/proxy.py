@@ -28,10 +28,13 @@ class ProxyConnection(ConnectionHandler):
 
     def on_connect(self, sock, address):
         self._local_socket = sock
+        print("CONNECT")
         # logger.debug("New proxy connection established with %s" % str(self.address))
 
     @silent_fail(log=True)
     def on_local_data(self, data):
+        print("LOCAL DATA %d" % len(data))
+        print(data)
         if len(data) == 0:
             return
 
@@ -46,6 +49,8 @@ class ProxyConnection(ConnectionHandler):
 
     @silent_fail(log=True)
     def on_remote_data(self, data):
+        print("REMOTE DATA %d" % len(data))
+        print(data)
         if len(data) == 0:
             return
 
@@ -54,6 +59,7 @@ class ProxyConnection(ConnectionHandler):
 
     @silent_fail(log=True)
     def on_local_closed(self):
+        print("LOCAL CLOSED")
         if self._remote_socket is None:
             return
 
@@ -64,12 +70,14 @@ class ProxyConnection(ConnectionHandler):
 
     @silent_fail(log=True)
     def on_remote_closed(self):
+        print("REMOTE CLOSED")
         try:
             self._local_socket.close()
         except socket.error:
             pass
 
     def start_remote(self, sock):
+        print("START REMOTE")
         self._remote_socket = sock
 
         def remote_reader():
@@ -87,19 +95,25 @@ class ProxyConnection(ConnectionHandler):
         gevent.spawn(remote_reader)
 
     def send_remote(self, data):
+        print("SEND REMOTE %d" % len(data))
         if len(data) == 0:
             return
+
         self._remote_socket.send(data)
 
     def send_local(self, data):
+        print("SEND LOCAL %d" % len(data))
         if len(data) == 0:
             return
+
         self._local_socket.send(data)
 
     def close_local(self):
+        print("CLOSE LOCAL")
         self._local_socket.close()
 
     def close_remote(self):
+        print("CLOSE REMOTE")
         self._remote_socket.close()
 
     def _check_for_schema(self):

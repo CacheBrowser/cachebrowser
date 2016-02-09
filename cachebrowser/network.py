@@ -1,5 +1,6 @@
 import inspect
 import socket
+import errno
 import gevent
 import gevent.pywsgi
 from gevent.server import StreamServer
@@ -43,18 +44,32 @@ class Server(object):
         self.server = StreamServer((ip, port), self._handle)
         self.handler = handler
 
+        self.active_connections = set()
+
     def start(self):
         return self.server.start()
 
     def stop(self):
         self.server.stop()
 
+    def close_all(self):
+        for connection in self.active_connections:
+            connection.close()
+        self.active_connections.clear()
+
+    def add_active_connection(self, connection):
+        self.active_connections.add(connection)
+
+    def remove_active_connection(self, connection):
+        if connection in self.active_connections:
+            self.active_connections.remove(connection)
+
     def _handle(self, sock, address):
         if self.handler is None:
             return
 
         if inspect.isclass(self.handler):
-            return self.handler().loop(sock, address=address)
+            return self.handler(server=self).loop(sock, address=address)
         else:
             return self.handler.loop(sock, address=address)
 
@@ -65,12 +80,16 @@ class ConnectionHandler(object):
         self.address = None
         self.alive = True
 
+        self._server = kwargs.get('server', None)
         self._read_size = 1024
 
     def loop(self, sock, address):
         self.socket = sock
         self.address = address
         self.alive = True
+
+        if self._server:
+            self._server.add_active_connection(self)
 
         self.on_connect(sock, address)
         self._loop_on_socket()
@@ -88,7 +107,15 @@ class ConnectionHandler(object):
                 self.on_data(buff)
         except socket.error as e:
             self.alive = False
-            self.on_error(e)
+
+            # If error is bad file descriptor its probably because the socket was closed
+            if e.errno == errno.EBADF:
+                self.on_close()
+            else:
+                self.on_error(e)
+
+        if self._server:
+            self._server.remove_active_connection(self)
 
     def send(self, data):
         self.socket.send(data)
@@ -134,7 +161,7 @@ class HttpServer(object):
         else:
             return self.handler.on_request(env, start_response)
 
-
+gevent.pywsgi.WSGIHandler
 class HttpConnectionHandler(object):
     def on_request(self, env, start_response):
         pass

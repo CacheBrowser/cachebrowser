@@ -86,6 +86,7 @@ class CLIHandler(BaseCLIHandler):
         self.register_command('list hosts', self.domain_list)
         self.register_command('list cdn', self.cdn_list)
         self.register_command('get', self.make_request)
+        self.register_command('https clear', self.close_https_proxy)
 
     def domain_add(self, hostname=None):
         """
@@ -123,6 +124,14 @@ class CLIHandler(BaseCLIHandler):
         """
         response = http.request(url, target=target)
         self.send_line(response.read())
+
+    def close_https_proxy(self):
+        from cachebrowser import common
+        rack = common.context.get('server_rack')
+        server = rack.get_server('proxy-https')
+
+        server.close_all()
+        self.send_line("Closed all https-proxy connections")
 
 
 class UnrecognizedCommandException(Exception):

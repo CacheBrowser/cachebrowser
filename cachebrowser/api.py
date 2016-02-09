@@ -85,6 +85,7 @@ class APIHandler(BaseAPIHandler):
         self.register_api('PUT', '/host/bootstrap', self.action_add_host)
         self.register_api('GET', '/host/check', self.action_check_host)
         self.register_api('GET', '/cachebrowse', self.action_get)
+        self.register_api('POST', '/proxy/https/clear', self.clear_https_proxy)
 
     @staticmethod
     def action_add_host(request):
@@ -137,3 +138,12 @@ class APIHandler(BaseAPIHandler):
                 return response.get_raw(), ResponseOptions(send_json=False)
             else:
                 return response.body, ResponseOptions(send_json=False)
+
+    @staticmethod
+    def clear_https_proxy(request):
+        from cachebrowser import common
+        rack = common.context.get('server_rack')
+        server = rack.get_server('proxy-https')
+
+        server.close_all()
+        return {'result': 'success'}

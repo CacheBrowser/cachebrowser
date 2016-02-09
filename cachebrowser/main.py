@@ -49,6 +49,11 @@ def run_cachebrowser():
     rack.create_server('proxy', port=8080, handler=proxy.ProxyConnection)
     rack.create_server('http', port=9005, handler=http.HttpConnection)
 
+
+    from cachebrowser import proxybeta
+    rack.add_server('proxybeta', HttpServer(port=8090, handler=proxybeta.ProxyHandler))
+    rack.create_server('proxy-https', port=8095, handler=proxybeta.SSLProxyHandler)
+
     common.context['server_rack'] = rack
     load_extensions()
 

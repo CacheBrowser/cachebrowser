@@ -1,240 +1,221 @@
-import socket
-import re
-import gevent
-from StringIO import StringIO
-from six.moves import urllib_parse as urlparse
+import mitmproxy.controller
+import mitmproxy.flow
+import mitmproxy.dump
+import mitmproxy.cmdline
+import mitmproxy.models
+import mitmproxy.protocol
+import mitmproxy as mproxy
+from mitmproxy.script import Script
+from mitmproxy.script.script_context import ScriptContext
 
-from cachebrowser.models import Host
-from cachebrowser.network import ConnectionHandler
-from cachebrowser.common import silent_fail, logger
-from cachebrowser import http
-from cachebrowser import dns
-
-
-class ProxyConnection(ConnectionHandler):
-    def __init__(self, *args, **kwargs):
-        super(ProxyConnection, self).__init__(*args, **kwargs)
-        self._buffer = StringIO()
-        self._schema = None
-
-        self._local_socket = None
-        self._remote_socket = None
-
-        self.on_data = self.on_local_data
-        self.on_close = self.on_local_closed
-
-    def on_data(self, data):
-        self.on_local_data(data)
-
-    def on_connect(self, sock, address):
-        self._local_socket = sock
-        # logger.debug("New proxy connection established with %s" % str(self.address))
-
-    @silent_fail(log=True)
-    def on_local_data(self, data):
-        if len(data) == 0:
-            return
-
-        if self._schema is not None:
-            if hasattr(self._schema, 'on_local_data'):
-                return self._schema.on_local_data(data)
-        else:
-            self._buffer.write(data)
-            schema = self._check_for_schema()
-            if schema is not None:
-                self._schema = schema(self, self._buffer)
-
-    @silent_fail(log=True)
-    def on_remote_data(self, data):
-        if len(data) == 0:
-            return
-
-        if hasattr(self._schema, 'on_remote_data'):
-            return self._schema.on_remote_data(data)
-
-    @silent_fail(log=True)
-    def on_local_closed(self):
-        if self._remote_socket is None:
-            return
-
-        try:
-            self._remote_socket.close()
-        except socket.error:
-            pass
-
-    @silent_fail(log=True)
-    def on_remote_closed(self):
-        try:
-            self._local_socket.close()
-        except socket.error:
-            pass
-
-    def start_remote(self, sock):
-        self._remote_socket = sock
-
-        def remote_reader():
-            try:
-                while True:
-                    buff = sock.recv(1024)
-                    gevent.sleep(0)
-                    if not buff:
-                        self.on_remote_closed()
-                        break
-
-                    self.on_remote_data(buff)
-            except Exception as e:
-                logger.error(e)
-        gevent.spawn(remote_reader)
-
-    def send_remote(self, data):
-        if len(data) == 0:
-            return
-        self._remote_socket.send(data)
-
-    def send_local(self, data):
-        if len(data) == 0:
-            return
-        self._local_socket.send(data)
-
-    def close_local(self):
-        self._local_socket.close()
-
-    def close_remote(self):
-        self._remote_socket.close()
-
-    def _check_for_schema(self):
-        buff = self._buffer.getvalue()
-        if '\n' in buff:
-            self._buffer.seek(0)
-            firstline = self._buffer.readline()
-            match = re.match("(?:GET|POST|PUT|DELETE|HEAD) (.+) \w+", firstline)
-            if match is not None:
-                return HttpSchema
-            match = re.match("(?:CONNECT) (.+) \w*", firstline)
-            if match is not None:
-                return SSLSchema
-        return None
+from six import StringIO
+from cachebrowser.ipc import IPCManager
 
 
-class HttpSchema(object):
-    def __init__(self, connection, buff=None):
-        self._connection = connection
-        self._upstream_started = False
-        self.request_builder = http.HttpRequest.Builder()
-        self.cachebrowsed = False
+class FlowPipe(Script, ScriptContext):
+    def __init__(self, master=None):
+        self._master = None
+        if master:
+            self.set_master(master)
 
-        if buff is not None:
-            self.on_local_data(buff.getvalue())
+    def set_master(self, master=None):
+        self._master = master
 
-    def on_local_data(self, data):
-        if not self._upstream_started:
-            self.request_builder.write(data)
-            self._check_request()
+    def log(self, message, level=None, key=None):
+        self._master.add_event(message, level, key)
 
-    def on_remote_data(self, data):
-        if self.cachebrowsed and 'Location: ' in data:
-            data = data.replace('Location: https', 'Location: http')
+    def create_request(self, method, scheme, host, port, path):
+        with self.pause():
+            return self._master.create_request(method, scheme, host, port, path)
 
-        self._connection.send_local(data)
+    def create_request_from_url(self, method, url, port=None):
+        from six.moves.urllib.parse import urlparse
+        u = urlparse(url)
+        if port is None:
+            port = 443 if u.scheme == 'https' else 80
+        path = u.path
+        if u.query:
+            path = path + '?' + u.query
+        return self.create_request(method, u.scheme, u.netloc, port, path)
 
-    def _check_request(self):
-        if not self.request_builder.is_ready():
-            return
-        self._upstream_started = True
-        self._start_remote()
+    def send_request(self, flow, run_hooks=False, block=False):
+        self._master.replay_request(flow, run_scripthooks=run_hooks, block=block)
 
-    def _start_remote(self):
-        http_request = self.request_builder.http_request
+    def run(self, name, *args, **kwargs):
+        hook = getattr(self, name, None)
+        if hook:
+            hook(*args, **kwargs)
 
-        url = http_request.path
-        parsed_url = urlparse.urlparse(url)
-        try:
-            host = Host.get(Host.hostname==parsed_url.hostname)
-            if host.uses_ssl:
-                url = url.replace('http', 'https')
-            self.cachebrowsed = True
-        except Host.DoesNotExist:
-            pass
+    def pause(self):
+        _self = self
 
-        logger.info("[%s] %s %s" % (http_request.method, url, '<CACHEBROWSED>' if self.cachebrowsed else ''))
-        request = http_request.get_raw()
-        # request = re.sub(r'^(GET|POST|PUT|DELETE|HEAD) http[s]?://[^/]+/(.+) (\w+)', r'\1 /\2 \3', request)
-        response = http.request(url, raw_request=request)
+        class Pauser:
+            def __enter__(self):
+                _self._master.pause_scripts = True
 
-        self._connection.start_remote(response)
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                _self._master.pause_scripts = False
+
+        return Pauser()
+
+    def publish(self, *args, **kwargs):
+        self._master.ipc.publish(*args, **kwargs)
 
 
-class SSLSchema(object):
-    def __init__(self, connection, buff=None):
-        self.connection = connection
-        self._buffer = buff or StringIO()
-        self._upstream_started = False
-        self._host = None
-        self._start_upstream()
-        # connection.close_local()
+#
+# class ServerConnection(mproxy.models.ServerConnection):
+#     def __init__(self, *args, **kwargs):
+#         mproxy.models.ServerConnection.__init__(self, *args, **kwargs)
+#
+#         self.is_fake = False
+#
+#     def fake_it(self):
+#         self.is_fake = True
+#         self.connect = self._fake_connect
+#         self.establish_ssl = self._fake_establish_ssl
+#         self.finish = self._fake_finish
+#
+#     def _fake_connect(self):
+#         print("Fake Connect called")
+#         self.wfile = StringIO()
+#         self.rfile = StringIO()
+#
+#     def _fake_establish_ssl(self, clientcerts, sni, **kwargs):
+#         print("Fake SSL")
+#
+#     def _fake_finish(self):
+#         print("Finish")
 
-        self.connection = connection
 
-    def on_local_data(self, data):
-        if not self._upstream_started and not self._start_upstream():
-            self._buffer.seek(0, 2)
-            self._buffer.write(data)
-            return
-        else:
-            self.connection.send_remote(data)
+class TlsLayer(mproxy.protocol.TlsLayer):
+    @property
+    def sni_for_server_connection(self):
+        if self.server_conn.sni is not None:
+            return self.server_conn.sni
+        return mproxy.protocol.TlsLayer.sni_for_server_connection.fget(self)
 
-    def on_remote_data(self, data):
-        self.connection.send_local(data)
 
-    def _start_upstream(self):
-        self._buffer.seek(0)
-        firstline = self._buffer.readline()
-        match = re.match("(?:CONNECT) ([^:]+)(?:[:](\d+))? \w+", firstline)
-        if match is None:
-            return
+class ProxyController(mitmproxy.flow.FlowMaster):
+    def __init__(self, server, state=None):
+        from log import ProxyLogger
 
-        host = match.group(1)
-        port = int(match.group(2) or 443)
+        if state is None:
+            state = mitmproxy.flow.State()
 
-        cachebrowsed = False
-        try:
-            Host.get(Host.hostname == host)
-            cachebrowsed = True
-        except Host.DoesNotExist:
-            pass
+        mitmproxy.flow.FlowMaster.__init__(self, server, state)
 
-        if cachebrowsed:
-            #logger.info("[HTTPS] %s:%s  <REJECTED>" % (host, port))
-            #self.connection.close_local()
-            logger.info("[HTTPS] %s:%s  <CACHEBROWSED>" % (host, port))
-            return self._connect_upstream(host, port)
-        else:
-            logger.info("[HTTPS] %s:%s  <PROXYING>" % (host, port))
-            return self._connect_upstream(host, port)
+        self.logger = ProxyLogger('warning')
 
-    def _connect_upstream(self, host, port):
-        ip, cachebrowsed = dns.resolve_host(host)
-        if not ip:
-            return
+        self.ipc = IPCManager()
 
-        # Return response to client
-        self.connection.send_local("HTTP/1.1 200 OK\r\n\r\n")
+    def add_pipe(self, pipe):
+        pipe.set_master(self)
+        self.scripts.append(pipe)
 
-        # Create remote socket
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # Shouldn't use SSL, ssl is forwarded directly from the client
-        # sock = ssl.wrap_socket(sock)
-        sock.connect((ip, port))
+    def handle_serverconnect(self, server_conn):
+        # server_conn.__class__ = ServerConnection
+        mproxy.flow.FlowMaster.handle_serverconnect(self, server_conn)
 
-        self._upstream_started = True
-        self._host = host
+    def handle_request(self, f):
+        mproxy.flow.FlowMaster.handle_request(self, f)
+        if f and not (hasattr(f, 'should_reply') and f.should_reply is False):
+            f.reply()
+        return f
 
-        # ! Ref to connection._buffer not updated
-        self._buffer = StringIO()
+    def handle_response(self, f):
+        mproxy.flow.FlowMaster.handle_response(self, f)
+        if f:
+            f.reply()
+        return f
 
-        # !! Why does this line not work here?
-        # self.connection.send_local("HTTP/1.1 200 OK\r\n\r\n")
+    def handle_error(self, f):
+        mproxy.flow.FlowMaster.handle_error(self, f)
+        return f
 
-        self.connection.start_remote(sock)
+    def handle_next_layer(self, top_layer):
+        if top_layer.__class__ == mproxy.protocol.TlsLayer:
+            top_layer.__class__ = TlsLayer
+        mproxy.flow.FlowMaster.handle_next_layer(self, top_layer)
 
-        return True
+    def add_event(self, e, level=None, key=None):
+        self.logger.log(e, level, key)
+
+    def run(self):
+        self.run_script_hook('start')
+        super(ProxyController, self).run()
+
+
+class DumpProxyController(mitmproxy.dump.DumpMaster):
+    def __init__(self, server):
+        parser = mitmproxy.cmdline.mitmdump()
+        options = parser.parse_args(None)
+        dump_options = mitmproxy.dump.Options(**mitmproxy.cmdline.get_common_options(options))
+        mitmproxy.dump.DumpMaster.__init__(self, server, dump_options)
+
+    def add_pipe(self, pipe):
+        pipe.set_master(self)
+        self.scripts.append(pipe)
+
+        # class ProxyController(mitmproxy.controller.Master):
+        # class ProxyController(mitmproxy.flow.FlowMaster):
+        #     def __init__(self, server):
+        #         # mitmproxy.controller.Master.__init__(self, server)
+        #         mitmproxy.flow.FlowMaster.__init__(self, server, mitmproxy.flow.State())
+        #
+        #         # self.context = ScriptContext(self)
+        #         # self.scripts.append(ProxyScript(self))
+        #
+        #     def add_pipe(self, pipe):
+        #         self.scripts.append(pipe)
+
+        # def handle_clientconnect(self, root_layer):
+        #     root_layer.reply()
+        #
+        # def handle_clientdisconnect(self, root_layer):
+        #     root_layer.reply()
+
+        # def serverconnect(self, server_conn):
+        #     if server_conn.sni:
+        #         print("[{}] [Connect] {}  SNI: {}".format(server_conn.id, server_conn.address, server_conn.sni))
+        #     else:
+        #         sid = hex(id(server_conn))[4:]
+        #         print("[{}] [Connect] {}".format(kcolor(sid), server_conn.address))
+
+        # for pipe in self.pipeline:
+        #     print(pipe)
+        #     if not pipe.handle_serverconnect(server_conn):
+        #         break
+
+        # server_conn.reply(Kill)
+        # server_conn.reply()
+
+        # def handle_serverdisconnect(self, server_conn):
+        #     server_conn.reply()
+
+        # def request(self, flow):
+        #     # self.replay_request(flow, True, True)
+        #     # f = self.context.duplicate_flow(flow)
+        #     # f.request.path = "/changed"
+        #     # self.context.replay_request(f)
+        #
+        #     sid = hex(id(flow.server_conn))[4:]
+        #     print("[{}] [{}] {}".format(kcolor(sid), flow.request.method, flow.request.url))
+        #     # flow.reply()
+
+
+        # def handle_response(self, flow):
+        #     flow.reply()
+        #
+        # def handle_next_layer(self, top_layer):
+        #     top_layer.reply()
+        #
+        # def handle_error(self, f):
+        #     f.reply()
+        #     return f
+
+        # def run_script_hook(self, name, *args, **kwargs):
+        #     if self.pause_scripts:
+        #         return
+        #     hook = getattr(self, name, None)
+        #     if hook:
+        #         hook(*args, **kwargs)

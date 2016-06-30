@@ -1,14 +1,10 @@
-import json
-import os
 import random
-import urllib
 import yaml
 from yaml.scanner import ScannerError
-from cachebrowser.common import logger
+from copy import deepcopy
 
-from cachebrowser.settings import settings
-from cachebrowser.models import Host, CDN, DoesNotExist
-from cachebrowser.http import request
+from .settings import settings
+# from .log import logger
 
 
 class BootstrapSourceError(Exception):
@@ -35,7 +31,20 @@ class LocalBootstrapSource(BaseBootstrapSource):
         self._load_source(filename)
 
     def lookup_host(self, hostname):
-        return self.hosts.get(hostname, None)
+        from fnmatch import fnmatch
+
+        main_domain = '.'.join(hostname.split('.')[-2:])
+
+        if main_domain not in self.hosts:
+            return None
+
+        for host in self.hosts[main_domain]:
+            if fnmatch(hostname, host['hostname']):
+                _host = deepcopy(host)
+                _host['hostname'] = hostname
+                return _host
+
+        return None
 
     def lookup_cdn(self, cdn_id):
         cdn = self.cdns.get(cdn_id, None)
@@ -87,7 +96,13 @@ class LocalBootstrapSource(BaseBootstrapSource):
         if 'ssl' in host_data:
             host['ssl'] = host_data['ssl']
 
-        self.hosts[host['hostname']] = host
+        main_domain = '.'.join(host['hostname'].split('.')[-2:])
+        if any([s in main_domain for s in ('*', '?')]):
+            raise BootstrapSourceError(self.ERROR_PREFIX + "Wildcards only allowed in subdomains")
+
+        if main_domain not in self.hosts:
+            self.hosts[main_domain] = []
+        self.hosts[main_domain].append(host)
 
     def _parse_cdn_entry(self, cdn_data):
         if 'id' not in cdn_data:
@@ -115,20 +130,45 @@ class RemoteBootstrapSource(BaseBootstrapSource):
         self.server_url = server_url
 
     def lookup_host(self, hostname):
-        return self._request('host/%s' % hostname)
+        _hostname = hostname.replace('.', '_')
+        data = self._request('/hosts/%s' % _hostname)
+
+        if data is None:
+            return None
+
+        return {
+            'hostname': hostname,
+            'cdn': data['cdn'],
+            'ssl': data['ssl']
+        }
 
     def lookup_cdn(self, cdn_id):
-        return self._request('cdn/%s' % cdn_id)
+        data = self._request('/cdns/%s' % cdn_id)
+
+        if data is None:
+            return None
+
+        return {
+            'id': cdn_id,
+            'name': data['name'],
+            'edge': data['edges'][0]
+        }
 
     def _request(self, path):
-        response = request(os.path.join(self.server_url, path))
-        if response.status == 404:
+        import requests
+        import json
+
+        url = self.server_url + path
+        response = requests.get(url)
+
+        # response = request(os.path.join(self.server_url, path))
+        if response.status_code == 404:
             return None
-        elif response.status != 200:
-            raise BootstrapSourceError('Remote bootstrapper request failed: %d' % response.status)
+        elif response.status_code != 200:
+            raise BootstrapSourceError('Remote bootstrapper request failed: %d' % response.status_code)
 
         try:
-            return json.loads(response.read())
+            return json.loads(response.text)['data']
         except ValueError:
             raise BootstrapSourceError('Invalid JSON response from remote bootstrap server')
 
@@ -155,9 +195,6 @@ class BootstrapValidationError(BootstrapError):
 
 
 class Bootstrapper(object):
-    CDN = CDN
-    Host = Host
-
     def __init__(self):
         self.sources = []
 
@@ -170,9 +207,9 @@ class Bootstrapper(object):
 
         # Lookup Host from sources
         try:
-            host_data, host_source = self._lookup_host(hostname)
+            host_data, host_source = self.lookup_host(hostname)
             host, host_created = self._get_or_create_host(hostname, create=True)
-            host.uses_ssl = host_data['ssl']
+            host.ssl = host_data['ssl']
 
             cdn, cdn_created = self._get_or_create_cdn(host_data['cdn'], create=True)
             host.cdn = cdn
@@ -186,12 +223,12 @@ class Bootstrapper(object):
         # Bootstrap CDN from sources
         if cdn_created or cdn.edge_server is None:
             try:
-                cdn_data, cdn_source = self._lookup_cdn(cdn.id)
+                cdn_data, cdn_source = self.lookup_cdn(cdn.id)
                 cdn.name = cdn_data['name']
                 cdn.edge_server = cdn_data['edge_server']
                 cdn.save()
 
-                logger.info("CDN '%s' bootstrapped from '%s'" % (cdn, str(cdn_source)))
+                # logger.info("CDN '%s' bootstrapped from '%s'" % (cdn, str(cdn_source)))
             except CDNNotAvailableError:
                 host.is_active = False
                 host.save()
@@ -200,41 +237,43 @@ class Bootstrapper(object):
         host.is_active = True
         host.save()
 
-        if host_source is not None:
-            logger.info("Host '%s' bootstrapped from '%s'" % (host, str(host_source)))
+        # if host_source is not None:
+            # logger.info("Host '%s' bootstrapped from '%s'" % (host, str(host_source)))
         return host
 
-    def _lookup_host(self, hostname):
+    def lookup_host(self, hostname):
         for source in self.sources:
             host_data = source.lookup_host(hostname)
             if host_data:
-                return self._validate_host_data(hostname, host_data), source
+                # return self._validate_host_data(hostname, host_data), source
+                return self._validate_host_data(hostname, host_data)
         raise HostNotAvailableError(hostname)
 
-    def _lookup_cdn(self, cdn_id):
+    def lookup_cdn(self, cdn_id):
         for source in self.sources:
             cdn_data = source.lookup_cdn(cdn_id)
             if cdn_data:
-                return self._validate_cdn_data(cdn_id, cdn_data), source
+                # return self._validate_cdn_data(cdn_id, cdn_data), source
+                return self._validate_cdn_data(cdn_id, cdn_data)
         raise CDNNotAvailableError(cdn_id)
 
-    @classmethod
-    def _get_or_create_host(cls, hostname, create=True):
-        try:
-            return Host.get(Host.hostname == hostname), False
-        except DoesNotExist:
-            if create:
-                return Host.create(hostname=hostname), True
-            return None, None
-
-    @classmethod
-    def _get_or_create_cdn(cls, cdn_id, create=True):
-        try:
-            return CDN.get(CDN.id == cdn_id), False
-        except DoesNotExist:
-            if create:
-                return CDN.create(id=cdn_id), True
-            return None, None
+    # @classmethod
+    # def _get_or_create_host(cls, hostname, create=True):
+    #     try:
+    #         return Host.get(Host.hostname == hostname), False
+    #     except DoesNotExist:
+    #         if create:
+    #             return Host.create(hostname=hostname), True
+    #         return None, None
+    #
+    # @classmethod
+    # def _get_or_create_cdn(cls, cdn_id, create=True):
+    #     try:
+    #         return CDN.get(CDN.id == cdn_id), False
+    #     except DoesNotExist:
+    #         if create:
+    #             return CDN.create(id=cdn_id), True
+    #         return None, None
 
     @classmethod
     def _validate_host_name(cls, hostname):
@@ -248,9 +287,10 @@ class Bootstrapper(object):
             if key not in host_data:
                 raise BootstrapValidationError("invalid host data received, missing '%s' key" % key)
 
-        if hostname != host_data['hostname']:
-                raise BootstrapValidationError("host data mismatch. Expecting data for %s but got data for %s"
-                                               % (hostname, host_data['hostname']))
+        # TODO This needs to be revised for pattern matching
+        # if hostname != host_data['hostname']:
+        #         raise BootstrapValidationError("host data mismatch. Expecting data for %s but got data for %s"
+        #                                        % (hostname, host_data['hostname']))
 
         host_data.setdefault('ssl', False)
 

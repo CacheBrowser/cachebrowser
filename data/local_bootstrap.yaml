@@ -1,11 +1,43 @@
-- type: cdn
-  id: cbcdn
-  name: CacheBrowser CDN (Cloudfront)
-  edge_servers:
-    - 54.230.27.22
-    - 54.230.27.181
+- type: host
+  name: www.youtube.com
+  ssl: true
+  cdn: google
+
 
 - type: host
-  name: www.cachebrowser.info
+  name: "r1235---*.googlevideo.com"
   ssl: true
-  cdn: cbcdn
+  cdn: googlevideo
+
+- type: host
+  name: "s.youtube.com"
+  ssl: true
+  cdn: google
+
+- type: cdn
+  id: google
+  name: Google
+  edge_servers:
+    - 216.58.198.142
+
+- type: cdn
+  id: googlevideo
+  name: Google Video
+  edge_servers:
+    - 192.189.138.205
+
+- type: cdn
+  id: fastly
+  name: Fastly
+  edge_servers:
+    - 151.101.116.193
+
+- type: host
+  name: "*.imgur.com"
+  ssl: true
+  cdn: fastly
+
+- type: host
+  name: "*.bbc.com"
+  ssl: false
+  cdn: fastly

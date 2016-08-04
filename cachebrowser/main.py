@@ -3,9 +3,10 @@ from __future__ import print_function, absolute_import
 import mitmproxy
 import mitmproxy.controller
 from mitmproxy.proxy.server import ProxyServer
+from .settings import settings
 
-from cachebrowser.bootstrap import initialize_bootstrapper
-from cachebrowser.resolver import Resolver
+from .bootstrap import initialize_bootstrapper
+from .resolver import Resolver
 from .proxy import ProxyController
 from .log import LogPipe
 
@@ -13,7 +14,7 @@ from .models import initialize_database
 
 
 def cdnreaper(args=None):
-    initialize_database('db.sqlite')
+    initialize_database(settings.database)
     initialize_bootstrapper()
 
     config = mitmproxy.proxy.ProxyConfig(port=8080)

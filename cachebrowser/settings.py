@@ -1,6 +1,8 @@
 import os
 import platform
 
+from .util import pkg_data
+
 __all__ = ['settings']
 
 
@@ -12,10 +14,7 @@ class CacheBrowserSettings(dict):
     def __init__(self, *args, **kwargs):
         super(CacheBrowserSettings, self).__init__(*args, **kwargs)
 
-        if platform.system() == 'Windows':
-            self.data_dir = os.path.join(os.environ['ALLUSERSPROFILE'], 'CacheBrowser')
-        else:
-            self.data_dir = '/tmp/'
+        self.data_dir = platform.get_data_dir()
 
         self.host = '0.0.0.0'
         self.port = 9876
@@ -24,7 +23,7 @@ class CacheBrowserSettings(dict):
         self.default_bootstrap_sources = [
             {
                 'type': 'local',
-                'path': 'data/local_bootstrap.yaml'
+                'path': pkg_data.path('local_bootstrap.yaml')
             },
             {
                 'type': 'remote',

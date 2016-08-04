@@ -67,11 +67,9 @@ class IPCWebSocket(object):
         server.set_fn_message_received(self.on_message)
 
     def on_connect(self, client, server):
-        print("New client connected")
         self.clients.append(client)
 
     def on_disconnect(self, client, server):
-        print("Client disconnected")
         self.clients = [c for c in self.clients if c['id'] != client['id']]
 
     def on_message(self, client, server, message):
@@ -82,7 +80,6 @@ class IPCWebSocket(object):
         message = json.dumps(message)
         for c in self.clients:
             self.server.send_message(c, message)
-        print("broadcasted message to {} clients".format(len(self.clients)))
 
     def send(self, client, message):
         self.server.send_message(client, json.dumps(message))

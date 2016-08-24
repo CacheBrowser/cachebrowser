@@ -1,13 +1,14 @@
-from termcolor import colored
 import os
 import importlib
 import inspect
+
+from termcolor import colored
 
 
 class ColorCache(object):
     def __init__(self):
         self.cache = {}
-        self.colors = ['red', 'green', 'blue', 'magenta', 'cyan', 'grey', 'yellow'] #'white',
+        self.colors = ['red', 'green', 'blue', 'magenta', 'cyan', 'grey', 'yellow']
         self.cnt = 0
 
     def get_color(self, key):
@@ -19,6 +20,7 @@ class ColorCache(object):
 
 
 ccache = ColorCache()
+
 
 def kcolor(text):
 
@@ -35,9 +37,11 @@ def get_flow_size(flow, ):
         for header in r.headers:
             s += len(header)
             s += len(r.headers[header])
-            s += 1 # Colon (?)
+            # Colon
+            s += 1
         s += len(r.http_version)
-        s += 2 # New lines
+        # New lines
+        s += 2
         return s
 
     if flow.request:
@@ -46,7 +50,8 @@ def get_flow_size(flow, ):
         req = 0
 
     if flow.response:
-        resp = get_size(flow.response) + len(flow.response.reason) + 3 # status code
+        # status code
+        resp = get_size(flow.response) + len(flow.response.reason) + 3
     else:
         resp = 0
 
@@ -54,7 +59,7 @@ def get_flow_size(flow, ):
 
 
 def pretty_bytes(num, suffix='B'):
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+    for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
         num /= 1024.0

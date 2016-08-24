@@ -1,7 +1,9 @@
 
 
 def close(request):
-    import os, signal
+    import os
+    import signal
+
     request.reply("OK")
     # sys.exit(0)
     os.kill(os.getpid(), signal.SIGINT)

@@ -1,10 +1,9 @@
 import random
 import yaml
-from yaml.scanner import ScannerError
 from copy import deepcopy
+from yaml.scanner import ScannerError
 
-from .settings import settings
-# from .log import logger
+from cachebrowser.settings import settings
 
 
 class BootstrapSourceError(Exception):
@@ -238,7 +237,7 @@ class Bootstrapper(object):
         host.save()
 
         # if host_source is not None:
-            # logger.info("Host '%s' bootstrapped from '%s'" % (host, str(host_source)))
+        #   logger.info("Host '%s' bootstrapped from '%s'" % (host, str(host_source)))
         return host
 
     def lookup_host(self, hostname):

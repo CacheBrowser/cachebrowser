@@ -1,5 +1,6 @@
 import peewee
-from bootstrap import bootstrapper, BootstrapError
+
+from cachebrowser.bootstrap import bootstrapper, BootstrapError
 
 db = peewee.SqliteDatabase('')
 

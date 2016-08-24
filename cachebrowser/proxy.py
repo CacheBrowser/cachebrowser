@@ -8,7 +8,6 @@ import mitmproxy as mproxy
 from mitmproxy.script import Script
 from mitmproxy.script.script_context import ScriptContext
 
-from six import StringIO
 from cachebrowser.ipc import IPCManager
 
 
@@ -201,7 +200,6 @@ class DumpProxyController(mitmproxy.dump.DumpMaster):
         #     sid = hex(id(flow.server_conn))[4:]
         #     print("[{}] [{}] {}".format(kcolor(sid), flow.request.method, flow.request.url))
         #     # flow.reply()
-
 
         # def handle_response(self, flow):
         #     flow.reply()

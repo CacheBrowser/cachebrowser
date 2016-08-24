@@ -1,7 +1,7 @@
 import os
 import platform
 
-from .util import pkg_data
+from cachebrowser.util import pkg_data
 
 __all__ = ['settings']
 
@@ -41,7 +41,5 @@ class CacheBrowserSettings(dict):
                 'type': 'local',
                 'path': source
             })
-
-
 
 settings = CacheBrowserSettings()

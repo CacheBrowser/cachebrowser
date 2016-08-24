@@ -1,8 +1,7 @@
-from mitmproxy.models import HTTPFlow
 from netlib.tcp import Address
-from cachebrowser.bootstrap import BootstrapError
+
 from cachebrowser.models import Host, DoesNotExist
-from proxy import FlowPipe
+from cachebrowser.proxy import FlowPipe
 
 """
 If the client initiates an HTTP connection, the 'request' hook will be called first and then 'serverconnect'.

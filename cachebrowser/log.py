@@ -1,21 +1,24 @@
-from proxy import FlowPipe
 import logging
+
 import colorama
-colorama.init()
 from termcolor import colored
 
+from cachebrowser.proxy import FlowPipe
+
+colorama.init()
 
 logger = logging.getLogger('cdnreaper')
 # logger.addHandler(logging.FileHandler('clog', mode='w'))
 logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.DEBUG)
 
+
 class ProxyLogger(object):
     def __init__(self, level='debug'):
         self.level = level
 
         self.key_color_cache = {}
-        self.colors = ['red', 'green', 'blue', 'magenta', 'cyan', 'grey', 'yellow'] #'white',
+        self.colors = ['red', 'green', 'blue', 'magenta', 'cyan', 'grey', 'yellow']
         self.color_cnt = 0
 
     def get_key_color(self, key):

@@ -1,4 +1,4 @@
-from routes import routes
+from cachebrowser.api.routes import routes
 
 
 class APIRequest(object):

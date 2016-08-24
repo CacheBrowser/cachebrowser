@@ -3,17 +3,16 @@ from __future__ import print_function, absolute_import
 import mitmproxy
 import mitmproxy.controller
 from mitmproxy.proxy.server import ProxyServer
-from .settings import settings
 
-from .bootstrap import initialize_bootstrapper
-from .resolver import Resolver
-from .proxy import ProxyController
-from .log import LogPipe
+from cachebrowser.bootstrap import initialize_bootstrapper
+from cachebrowser.log import LogPipe
+from cachebrowser.models import initialize_database
+from cachebrowser.proxy import ProxyController
+from cachebrowser.resolver import Resolver
+from cachebrowser.settings import settings
 
-from .models import initialize_database
 
-
-def cdnreaper(args=None):
+def cachebrowser(args=None):
     initialize_database(settings.database)
     initialize_bootstrapper()
 
@@ -30,4 +29,4 @@ def cdnreaper(args=None):
 
 
 if __name__ == '__main__':
-    cdnreaper()
+    cachebrowser()

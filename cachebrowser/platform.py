@@ -13,7 +13,7 @@ def get_data_dir(create=True):
 
     if platform == 'darwin':
         data_dir = os.path.expanduser('~/Library/Application Support/{}'.format(APP_NAME))
-    elif platform == 'windows':
+    elif platform == 'win32':
         data_dir = os.path.join(os.environ.get('ALLUSERSPROFILE', ''), APP_NAME)
     elif platform == 'linux':
         data_dir = os.path.expanduser('~/.{}'.format(APP_NAME.lower()))

@@ -38,7 +38,7 @@ class Resolver(FlowPipe):
         server_conn.cb_status_message = ''
 
         try:
-            host = Host.get_or_bootstrap(hostname=hostname)
+            host = self._get_or_bootstrap_host(hostname=hostname)
         except DoesNotExist:
             err = "Bootstrapping host {} failed".format(hostname)
             server_conn.cb_status_message = err
@@ -73,7 +73,7 @@ class Resolver(FlowPipe):
 
         if flow.request.scheme == 'http':
             try:
-                host = Host.get_or_bootstrap(hostname=flow.request.host)
+                host = self._get_or_bootstrap_host(hostname=flow.request.host)
 
                 if host.is_active and host.ssl:
                     flow.request.scheme = 'https'

@@ -18,8 +18,10 @@ def cachebrowser(args=None, dev=False):
     # TODO update settings with config file
     # TODO udpate settings with args
 
-    initialize_database(settings.database)
+    if not dev:
+        check_data_files(settings)
 
+    initialize_database(settings.database)
     bootstrapper = Bootstrapper(settings)
 
     config = mitmproxy.proxy.ProxyConfig(port=settings.port)
@@ -32,6 +34,31 @@ def cachebrowser(args=None, dev=False):
         return m.run()
     except KeyboardInterrupt:
         m.shutdown()
+
+
+def check_data_files(settings):
+    import os
+    import pkgutil
+
+    if not os.path.isdir(settings.data_dir()):
+        try:
+            os.mkdir(settings.data_dir())
+        except OSError:
+            # TODO err
+            return
+
+    data_files = [
+        'local_bootstrap.yaml'
+    ]
+
+    for data_file in data_files:
+        data_path = settings.data_path(data_file)
+
+        if not os.path.isfile(data_path):
+            # TODO LOG
+            print("Creating data file {}".format(data_path))
+            with open(data_path, 'w') as f:
+                f.write(pkgutil.get_data('cachebrowser', os.path.join('data', data_file)))
 
 
 if __name__ == '__main__':

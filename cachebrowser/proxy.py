@@ -61,31 +61,6 @@ class FlowPipe(Script, ScriptContext):
         self._master.ipc.publish(*args, **kwargs)
 
 
-#
-# class ServerConnection(mproxy.models.ServerConnection):
-#     def __init__(self, *args, **kwargs):
-#         mproxy.models.ServerConnection.__init__(self, *args, **kwargs)
-#
-#         self.is_fake = False
-#
-#     def fake_it(self):
-#         self.is_fake = True
-#         self.connect = self._fake_connect
-#         self.establish_ssl = self._fake_establish_ssl
-#         self.finish = self._fake_finish
-#
-#     def _fake_connect(self):
-#         print("Fake Connect called")
-#         self.wfile = StringIO()
-#         self.rfile = StringIO()
-#
-#     def _fake_establish_ssl(self, clientcerts, sni, **kwargs):
-#         print("Fake SSL")
-#
-#     def _fake_finish(self):
-#         print("Finish")
-
-
 class TlsLayer(mproxy.protocol.TlsLayer):
     @property
     def sni_for_server_connection(self):
@@ -154,66 +129,3 @@ class DumpProxyController(mitmproxy.dump.DumpMaster):
     def add_pipe(self, pipe):
         pipe.set_master(self)
         self.scripts.append(pipe)
-
-        # class ProxyController(mitmproxy.controller.Master):
-        # class ProxyController(mitmproxy.flow.FlowMaster):
-        #     def __init__(self, server):
-        #         # mitmproxy.controller.Master.__init__(self, server)
-        #         mitmproxy.flow.FlowMaster.__init__(self, server, mitmproxy.flow.State())
-        #
-        #         # self.context = ScriptContext(self)
-        #         # self.scripts.append(ProxyScript(self))
-        #
-        #     def add_pipe(self, pipe):
-        #         self.scripts.append(pipe)
-
-        # def handle_clientconnect(self, root_layer):
-        #     root_layer.reply()
-        #
-        # def handle_clientdisconnect(self, root_layer):
-        #     root_layer.reply()
-
-        # def serverconnect(self, server_conn):
-        #     if server_conn.sni:
-        #         print("[{}] [Connect] {}  SNI: {}".format(server_conn.id, server_conn.address, server_conn.sni))
-        #     else:
-        #         sid = hex(id(server_conn))[4:]
-        #         print("[{}] [Connect] {}".format(kcolor(sid), server_conn.address))
-
-        # for pipe in self.pipeline:
-        #     print(pipe)
-        #     if not pipe.handle_serverconnect(server_conn):
-        #         break
-
-        # server_conn.reply(Kill)
-        # server_conn.reply()
-
-        # def handle_serverdisconnect(self, server_conn):
-        #     server_conn.reply()
-
-        # def request(self, flow):
-        #     # self.replay_request(flow, True, True)
-        #     # f = self.context.duplicate_flow(flow)
-        #     # f.request.path = "/changed"
-        #     # self.context.replay_request(f)
-        #
-        #     sid = hex(id(flow.server_conn))[4:]
-        #     print("[{}] [{}] {}".format(kcolor(sid), flow.request.method, flow.request.url))
-        #     # flow.reply()
-
-        # def handle_response(self, flow):
-        #     flow.reply()
-        #
-        # def handle_next_layer(self, top_layer):
-        #     top_layer.reply()
-        #
-        # def handle_error(self, f):
-        #     f.reply()
-        #     return f
-
-        # def run_script_hook(self, name, *args, **kwargs):
-        #     if self.pause_scripts:
-        #         return
-        #     hook = getattr(self, name, None)
-        #     if hook:
-        #         hook(*args, **kwargs)

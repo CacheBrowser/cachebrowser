@@ -24,9 +24,6 @@ class Resolver(FlowPipe):
         super(Resolver, self).__init__(*args, **kwargs)
         self.bootstrapper = bootstrapper
 
-    def start(self):
-        self._id_counter = 1
-
     def serverconnect(self, server_conn):
         hostname = server_conn.address.host
 
@@ -64,9 +61,6 @@ class Resolver(FlowPipe):
         return server_conn
 
     def request(self, flow):
-        flow._id = self._id_counter
-        self._id_counter += 1
-
         flow.request.scheme_upgraded = False
 
         flow.request.headers['host'] = flow.request.pretty_host
@@ -84,11 +78,7 @@ class Resolver(FlowPipe):
             except DoesNotExist:
                 pass
 
-        self.publish_flow(flow)
         return flow
-
-    def response(self, flow):
-        self.publish_flow(flow)
 
     def _get_or_bootstrap_host(self, hostname):
         try:
@@ -121,34 +111,3 @@ class Resolver(FlowPipe):
                 return cdn
             except BootstrapError:
                 raise DoesNotExist
-
-    def publish_flow(self, flow):
-        from util import get_flow_size
-        log = {
-            'id': flow._id,
-            'url': flow.request.pretty_url,
-            'method': flow.request.method,
-            'scheme': flow.request.scheme,
-            'scheme_upgraded': flow.request.scheme_upgraded,
-            'request_size': get_flow_size(flow)[0],
-            'request_headers': dict(flow.request.headers)
-        }
-
-        if flow.response is not None:
-            log['status_code'] = flow.response.status_code
-            log['reason'] = flow.response.reason
-            log['response_size'] = get_flow_size(flow)[1]
-            log['response_headers'] = dict(flow.response.headers)
-
-        if getattr(flow.server_conn, 'cachebrowsed', None) is not None:
-            log.update({
-                'address': flow.server_conn.peer_address.host,
-                'sni': flow.server_conn.sni,
-                'cdn': flow.server_conn.cdn,
-                'cachebrowsed': flow.server_conn.cachebrowsed,
-                'cb_error': flow.server_conn.cb_status_message
-            })
-
-        self.publish('request-log', log)
-
-# TODO publish error

@@ -8,7 +8,8 @@ from cachebrowser.bootstrap import Bootstrapper
 from cachebrowser.log import LogPipe
 from cachebrowser.models import initialize_database
 from cachebrowser.proxy import ProxyController
-from cachebrowser.resolver import Resolver
+from cachebrowser.pipes.resolver import Resolver
+from cachebrowser.pipes.publisher import Publisher
 from cachebrowser.settings import DevelopmentSettings, ProductionSettings
 
 
@@ -27,8 +28,9 @@ def cachebrowser(args=None, dev=False):
     config = mitmproxy.proxy.ProxyConfig(port=settings.port)
     server = ProxyServer(config)
     m = ProxyController(server)
-    m.add_pipe(LogPipe())
+    # m.add_pipe(LogPipe())
     m.add_pipe(Resolver(bootstrapper))
+    m.add_pipe(Publisher())
     # m.add_pipe(Scrambler())
     try:
         return m.run()

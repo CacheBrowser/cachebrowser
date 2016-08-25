@@ -1,6 +1,7 @@
+from cachebrowser.bootstrap import BootstrapError
 from netlib.tcp import Address
 
-from cachebrowser.models import Host, DoesNotExist
+from cachebrowser.models import Host, DoesNotExist, CDN
 from cachebrowser.proxy import FlowPipe
 
 """
@@ -19,6 +20,10 @@ it for now.
 
 
 class Resolver(FlowPipe):
+    def __init__(self, bootstrapper, *args, **kwargs):
+        super(Resolver, self).__init__(*args, **kwargs)
+        self.bootstrapper = bootstrapper
+
     def start(self):
         self._id_counter = 1
 
@@ -84,6 +89,38 @@ class Resolver(FlowPipe):
 
     def response(self, flow):
         self.publish_flow(flow)
+
+    def _get_or_bootstrap_host(self, hostname):
+        try:
+            return Host.get(Host.hostname == hostname)
+        except DoesNotExist:
+            try:
+                host_data = self.bootstrapper.lookup_host(hostname)
+            except BootstrapError:
+                raise DoesNotExist
+
+            host = Host(**host_data)
+
+            try:
+                host.cdn = CDN.get_or_bootstrap(host.cdn_id)
+            except DoesNotExist:
+                host.cdn = CDN.create(id=host.cdn_id, valid=False)
+
+            host.save(force_insert=True)
+
+            return host
+
+    def _get_or_bootstrap_cdn(self, cdn_id):
+        try:
+            return CDN.get(CDN.id == cdn_id)
+        except DoesNotExist:
+            try:
+                cdn_data = self.bootstrapper.lookup_cdn(id)
+                cdn = CDN(**cdn_data)
+                cdn.save(force_insert=True)
+                return cdn
+            except BootstrapError:
+                raise DoesNotExist
 
     def publish_flow(self, flow):
         from util import get_flow_size

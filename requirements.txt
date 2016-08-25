@@ -4,3 +4,4 @@ termcolor
 peewee
 ipwhois
 websocket_server
+appdirs

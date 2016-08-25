@@ -3,8 +3,6 @@ import yaml
 from copy import deepcopy
 from yaml.scanner import ScannerError
 
-from cachebrowser.settings import settings
-
 
 class BootstrapSourceError(Exception):
     pass
@@ -194,8 +192,22 @@ class BootstrapValidationError(BootstrapError):
 
 
 class Bootstrapper(object):
-    def __init__(self):
+    def __init__(self, settings):
+        self.settings = settings
         self.sources = []
+
+        self._initialize_sources(settings.bootstrap_sources)
+
+    def _initialize_sources(self, sources):
+        for source_config in sources:
+            if source_config['type'] == 'local':
+                source = LocalBootstrapSource(source_config['path'])
+            elif source_config['type'] == 'remote':
+                source = RemoteBootstrapSource(source_config['url'])
+            else:
+                # TODO warn
+                continue
+            self.add_source(source)
 
     def add_source(self, source):
         self.sources.append(source)
@@ -305,18 +317,3 @@ class Bootstrapper(object):
             raise BootstrapValidationError("host data mismatch. Expecting data for %s but got data for %s"
                                            % (cdn_id, cdn_data['id']))
         return cdn_data
-
-
-bootstrapper = Bootstrapper()
-
-
-def initialize_bootstrapper(bootstrapper=bootstrapper):
-    sources = settings.default_bootstrap_sources
-    sources += settings.bootstrap_sources
-
-    for source_config in sources:
-        if source_config['type'] == 'local':
-            source = LocalBootstrapSource(source_config['path'])
-        elif source_config['type'] == 'remote':
-            source = RemoteBootstrapSource(source_config['url'])
-        bootstrapper.add_source(source)

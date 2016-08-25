@@ -4,23 +4,29 @@ import mitmproxy
 import mitmproxy.controller
 from mitmproxy.proxy.server import ProxyServer
 
-from cachebrowser.bootstrap import initialize_bootstrapper
+from cachebrowser.bootstrap import Bootstrapper
 from cachebrowser.log import LogPipe
 from cachebrowser.models import initialize_database
 from cachebrowser.proxy import ProxyController
 from cachebrowser.resolver import Resolver
-from cachebrowser.settings import settings
+from cachebrowser.settings import DevelopmentSettings, ProductionSettings
 
 
-def cachebrowser(args=None):
+def cachebrowser(args=None, dev=False):
+    settings = DevelopmentSettings() if dev else ProductionSettings()
+
+    # TODO update settings with config file
+    # TODO udpate settings with args
+
     initialize_database(settings.database)
-    initialize_bootstrapper()
 
-    config = mitmproxy.proxy.ProxyConfig(port=8080)
+    bootstrapper = Bootstrapper(settings)
+
+    config = mitmproxy.proxy.ProxyConfig(port=settings.port)
     server = ProxyServer(config)
     m = ProxyController(server)
     m.add_pipe(LogPipe())
-    m.add_pipe(Resolver())
+    m.add_pipe(Resolver(bootstrapper))
     # m.add_pipe(Scrambler())
     try:
         return m.run()

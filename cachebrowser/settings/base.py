@@ -11,6 +11,7 @@ class CacheBrowserSettings(object):
     def __init__(self):
         self.host = None
         self.port = None
+        self.ipc_port = None
         self.database = None
         self.bootstrap_sources = None
 

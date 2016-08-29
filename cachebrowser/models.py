@@ -1,5 +1,7 @@
 import peewee
+import logging
 
+logger = logging.getLogger(__name__)
 db = peewee.SqliteDatabase('')
 
 
@@ -50,6 +52,7 @@ def initialize_database(db_filename, reset=False):
     db.database = db_filename
 
     if reset:
+        logger.info("Resetting database tables")
         Host.drop_table(True)
         CDN.drop_table(True)
 

@@ -6,8 +6,10 @@ from cachebrowser.api.core import api_manager, APIRequest
 
 
 class IPCManager(object):
-    def __init__(self):
-        self.websocket_server = IPCWebSocket(self)
+    def __init__(self, settings):
+        self.settings = settings
+
+        self.websocket_server = IPCWebSocket(self, settings.ipc_port)
         self.websocket_server.start()
 
         self.subscribtions = {}
@@ -47,9 +49,9 @@ class IPCManager(object):
 
 
 class IPCWebSocket(object):
-    def __init__(self, ipc):
+    def __init__(self, ipc, port):
         self.ipc = ipc
-        self.server = WebsocketServer(9000)
+        self.server = WebsocketServer(port)
         self._set_callbacks(self.server)
 
         self.clients = []

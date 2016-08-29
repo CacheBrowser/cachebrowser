@@ -5,6 +5,7 @@ class DevelopmentSettings(CacheBrowserSettings):
     def set_defaults(self):
         self.host = "127.0.0.1"
         self.port = 8080
+        self.ipc_port = 9000
         self.database = 'db.sqlite'
         self.bootstrap_sources = [
             {

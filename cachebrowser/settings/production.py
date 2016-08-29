@@ -7,6 +7,7 @@ class ProductionSettings(CacheBrowserSettings):
     def set_defaults(self):
         self.host = "127.0.0.1"
         self.port = 8080
+        self.ipc_port = 9000
         self.database = self.data_path('cachebrowser.db')
         self.bootstrap_sources = [
             {

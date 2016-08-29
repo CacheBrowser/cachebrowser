@@ -1,3 +1,5 @@
+import logging
+
 import mitmproxy.controller
 import mitmproxy.flow
 import mitmproxy.dump
@@ -8,7 +10,7 @@ import mitmproxy as mproxy
 from mitmproxy.script import Script
 from mitmproxy.script.script_context import ScriptContext
 
-from cachebrowser.ipc import IPCManager
+logger = logging.getLogger(__name__)
 
 
 class FlowPipe(Script, ScriptContext):
@@ -70,17 +72,13 @@ class TlsLayer(mproxy.protocol.TlsLayer):
 
 
 class ProxyController(mitmproxy.flow.FlowMaster):
-    def __init__(self, server, state=None):
-        from log import ProxyLogger
-
+    def __init__(self, server, ipc, state=None):
         if state is None:
             state = mitmproxy.flow.State()
 
         mitmproxy.flow.FlowMaster.__init__(self, server, state)
 
-        self.logger = ProxyLogger('warning')
-
-        self.ipc = IPCManager()
+        self.ipc = ipc
 
     def add_pipe(self, pipe):
         pipe.set_master(self)
@@ -112,7 +110,20 @@ class ProxyController(mitmproxy.flow.FlowMaster):
         mproxy.flow.FlowMaster.handle_next_layer(self, top_layer)
 
     def add_event(self, e, level=None, key=None):
-        self.logger.log(e, level, key)
+        # mitmproxy gives TLS error: Invalid Hostname because of not using SNI
+        # ignore the message so the log doesn't get cluttered
+
+        ignore_messages = [
+            "TLS verification failed for upstream server at depth 0 with error: Invalid Hostname",
+            "Ignoring server verification error, continuing with connection",
+            "clientconnect",
+            "clientdisconnect",
+        ]
+
+        if any([e.endswith(s) for s in ignore_messages]):
+            return
+
+        logger.log(getattr(logging, level.upper()), e)
 
     def run(self):
         self.run_script_hook('start')

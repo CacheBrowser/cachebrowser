@@ -124,6 +124,7 @@ class ProxyController(mitmproxy.flow.FlowMaster):
             return
 
         logger.log(getattr(logging, level.upper()), e)
+        # logger.log(logging.DEBUG, e)
 
     def run(self):
         self.run_script_hook('start')

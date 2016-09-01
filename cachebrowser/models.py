@@ -4,6 +4,10 @@ import logging
 logger = logging.getLogger(__name__)
 db = peewee.SqliteDatabase('')
 
+SNI_EMPTY = "empty"
+SNI_FRONT = "font"
+SNI_ORIGINAL = "original"
+
 
 class BaseModel(peewee.Model):
     pass
@@ -13,7 +17,7 @@ class CDN(BaseModel):
     id = peewee.CharField(primary_key=True)
     name = peewee.CharField(null=True)
     edge_server = peewee.CharField(null=True)
-
+    sni_policy = peewee.CharField(default=SNI_ORIGINAL)
     valid = peewee.BooleanField(null=False, default=True)
 
     class Meta:
@@ -31,6 +35,7 @@ class Host(peewee.Model):
     cdn = peewee.ForeignKeyField(CDN, null=True)
     ssl = peewee.BooleanField(default=False)
     is_active = peewee.BooleanField(default=True)
+    sni_policy = peewee.CharField(default=SNI_ORIGINAL)
 
     class Meta:
         database = db

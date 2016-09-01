@@ -10,18 +10,23 @@ class APIRequest(object):
         raise NotImplementedError()
 
 
-class APIManager(object):
+class BaseAPIManager(object):
     def __init__(self):
         self.handlers = {}
 
     def register_api(self, route, handler):
         self.handlers[route] = handler
 
-    def handle_api_request(self, request):
-        self.handlers[request.route](request)
+    def handle_api_request(self, context, request):
+        self.handlers[request.route](context, request)
 
 
+class APIManager(BaseAPIManager):
+    def __init__(self):
+        super(APIManager, self).__init__()
+
+        for route in routes:
+            self.register_api(route[0], route[1])
+        
 api_manager = APIManager()
 
-for route in routes:
-    api_manager.register_api(route[0], route[1])

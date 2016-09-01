@@ -37,8 +37,9 @@ class Resolver(FlowPipe):
         try:
             host = self._get_or_bootstrap_host(hostname=hostname)
         except DoesNotExist:
-            err = "Bootstrapping host {} failed".format(hostname)
+            err = "Bootstrap information not available for".format(hostname)
             server_conn.cb_status_message = err
+            self.log(err, 'debug')
             return server_conn
 
         # Skip if host is not active
@@ -92,7 +93,7 @@ class Resolver(FlowPipe):
             host = Host(**host_data)
 
             try:
-                host.cdn = CDN.get_or_bootstrap(host.cdn_id)
+                host.cdn = self._get_or_bootstrap_cdn(host.cdn_id)
             except DoesNotExist:
                 host.cdn = CDN.create(id=host.cdn_id, valid=False)
 

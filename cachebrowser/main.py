@@ -3,11 +3,12 @@ from __future__ import print_function, absolute_import
 import logging
 import logging.config
 import sys
+import inspect
 
+import click
 import mitmproxy
 import mitmproxy.controller
 from mitmproxy.proxy.server import ProxyServer
-
 
 from cachebrowser.bootstrap import Bootstrapper
 from cachebrowser.models import initialize_database
@@ -16,8 +17,71 @@ from cachebrowser.pipes.resolver import Resolver
 from cachebrowser.pipes.publisher import Publisher
 from cachebrowser.settings import DevelopmentSettings, ProductionSettings
 from cachebrowser.ipc import IPCManager
+from cachebrowser import cli
 
 logger = logging.getLogger(__name__)
+
+
+class Context(object):
+    def __init__(self):
+        self.click = None
+        self.settings = None
+        self.bootstrapper = None
+
+
+@click.group(invoke_without_command=True)
+@click.pass_context
+def cachebrowser(click_context):
+    dev = False
+
+    settings = DevelopmentSettings() if dev else ProductionSettings()
+
+    # TODO update settings with config file
+    # TODO udpate settings with args
+
+    initialize_logging()
+
+    if not dev:
+        check_data_files(settings)
+
+    logger.debug("Initializing database")
+    initialize_database(settings.database)
+
+    logger.debug("Initializing bootstrapper")
+    bootstrapper = Bootstrapper(settings)
+
+    context = Context()
+    context.bootstrapper = bootstrapper
+    context.settings = settings
+    context.click = click_context
+
+    click_context.obj = context
+
+    if click_context.invoked_subcommand is None:
+        logger.debug("No command specified, starting CacheBrowser server")
+        click_context.invoke(start_cachebrowser_server)
+
+
+@cachebrowser.command('start')
+@click.pass_obj
+def start_cachebrowser_server(context):
+    logger.debug("Initializing IPC")
+    ipc = IPCManager(context)
+
+    config = mitmproxy.proxy.ProxyConfig(port=context.settings.port)
+    server = ProxyServer(config)
+    m = ProxyController(server, ipc)
+
+    logger.debug("Adding 'Resolver' pipe")
+    m.add_pipe(Resolver(context.bootstrapper))
+    logger.debug("Adding 'Publisher' pipe")
+    m.add_pipe(Publisher())
+
+    try:
+        logger.info("Listening for proxy connections on port {}".format(context.settings.port))
+        return m.run()
+    except KeyboardInterrupt:
+        m.shutdown()
 
 
 def initialize_logging():
@@ -46,42 +110,6 @@ def initialize_logging():
     })
 
 
-def cachebrowser(args=None, dev=False):
-    settings = DevelopmentSettings() if dev else ProductionSettings()
-
-    # TODO update settings with config file
-    # TODO udpate settings with args
-
-    initialize_logging()
-
-    if not dev:
-        check_data_files(settings)
-
-    logger.debug("Initializing database")
-    initialize_database(settings.database)
-
-    logger.debug("Initializing bootstrapper")
-    bootstrapper = Bootstrapper(settings)
-
-    logger.debug("Initializing IPC")
-    ipc = IPCManager(settings)
-
-    config = mitmproxy.proxy.ProxyConfig(port=settings.port)
-    server = ProxyServer(config)
-    m = ProxyController(server, ipc)
-
-    logger.debug("Adding 'Resolver' pipe")
-    m.add_pipe(Resolver(bootstrapper))
-    logger.debug("Adding 'Publisher' pipe")
-    m.add_pipe(Publisher())
-
-    try:
-        logger.info("Listening for proxy connections on port {}".format(settings.port))
-        return m.run()
-    except KeyboardInterrupt:
-        m.shutdown()
-
-
 def check_data_files(settings):
     import os
     import pkgutil
@@ -106,7 +134,5 @@ def check_data_files(settings):
                 f.write(pkgutil.get_data('cachebrowser', os.path.join('data', data_file)))
 
 
-if __name__ == '__main__':
-    cachebrowser()
-    import mitmproxy.protocol.tls
-    import mitmproxy.controller
+for name in cli.main_commands:
+    cachebrowser.add_command(getattr(cli, name))

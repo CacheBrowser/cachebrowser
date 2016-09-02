@@ -1,4 +1,4 @@
-from base import CacheBrowserSettings
+from base import CacheBrowserSettings, SettingsValidtionError
 from development import DevelopmentSettings
 from production import ProductionSettings
 

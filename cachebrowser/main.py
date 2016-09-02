@@ -16,7 +16,7 @@ from cachebrowser.proxy import ProxyController
 from cachebrowser.pipes.resolver import ResolverPipe
 from cachebrowser.pipes.publisher import PublisherPipe
 from cachebrowser.pipes.sni import SNIPipe
-from cachebrowser.settings import DevelopmentSettings, ProductionSettings
+from cachebrowser.settings import DevelopmentSettings, ProductionSettings, SettingsValidtionError
 from cachebrowser.ipc import IPCManager
 from cachebrowser import cli
 
@@ -31,15 +31,25 @@ class Context(object):
 
 
 @click.group(invoke_without_command=True)
-@click.option('--reset-db', is_flag=True, default=False)
+@click.option('-c', '--config', type=click.File('r'), help="Path to configuration file.")
+@click.option('-p', '--port', type=int, help='The HTTP proxy port to run on.')
+@click.option('-d', '--database', type=str, help="Path to store database file.")
+@click.option('--sni', type=click.Choice(['empty', 'front', 'original']), help="The default SNI policy to use.")
+@click.option('--reset-db', is_flag=True, default=False, help="Reset the database.")
 @click.pass_context
-def cachebrowser(click_context, reset_db):
+def cachebrowser(click_context, config, reset_db, **kwargs):
     dev = False
 
     settings = DevelopmentSettings() if dev else ProductionSettings()
 
-    # TODO update settings with config file
-    # TODO udpate settings with args
+    settings.update_with_settings_file(config)
+    settings.update_with_args(kwargs)
+
+    try:
+        settings.validate()
+    except SettingsValidtionError as e:
+        print("Invalid settings: {}".format(e.message))
+        sys.exit(1)
 
     initialize_logging()
 

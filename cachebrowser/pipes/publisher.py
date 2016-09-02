@@ -1,10 +1,10 @@
-from cachebrowser.proxy import FlowPipe
+from cachebrowser.pipes.base import FlowPipe
 from cachebrowser.util import get_flow_size
 
 
-class Publisher(FlowPipe):
+class PublisherPipe(FlowPipe):
     def __init__(self, *args, **kwargs):
-        super(Publisher, self).__init__(*args, **kwargs)
+        super(PublisherPipe, self).__init__(*args, **kwargs)
         self._id_counter = 1
 
     def start(self):

@@ -2,7 +2,7 @@ from cachebrowser.bootstrap import BootstrapError
 from netlib.tcp import Address
 
 from cachebrowser.models import Host, DoesNotExist, CDN
-from cachebrowser.proxy import FlowPipe
+from cachebrowser.pipes.base import FlowPipe
 
 """
 If the client initiates an HTTP connection, the 'request' hook will be called first and then 'serverconnect'.
@@ -19,11 +19,7 @@ it for now.
 """
 
 
-class Resolver(FlowPipe):
-    def __init__(self, bootstrapper, *args, **kwargs):
-        super(Resolver, self).__init__(*args, **kwargs)
-        self.bootstrapper = bootstrapper
-
+class ResolverPipe(FlowPipe):
     def serverconnect(self, server_conn):
         hostname = server_conn.address.host
 
@@ -54,10 +50,10 @@ class Resolver(FlowPipe):
             return server_conn
 
         server_conn.address = Address((cdn.edge_server, server_conn.address.port))
-        server_conn.sni = ''
 
         server_conn.cachebrowsed = True
-        server_conn.cdn = {'id': cdn.id, 'name': cdn.name}
+        server_conn.cdn = cdn
+        server_conn.host = host
 
         return server_conn
 

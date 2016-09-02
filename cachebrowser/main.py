@@ -13,8 +13,9 @@ from mitmproxy.proxy.server import ProxyServer
 from cachebrowser.bootstrap import Bootstrapper
 from cachebrowser.models import initialize_database
 from cachebrowser.proxy import ProxyController
-from cachebrowser.pipes.resolver import Resolver
-from cachebrowser.pipes.publisher import Publisher
+from cachebrowser.pipes.resolver import ResolverPipe
+from cachebrowser.pipes.publisher import PublisherPipe
+from cachebrowser.pipes.sni import SNIPipe
 from cachebrowser.settings import DevelopmentSettings, ProductionSettings
 from cachebrowser.ipc import IPCManager
 from cachebrowser import cli
@@ -30,8 +31,9 @@ class Context(object):
 
 
 @click.group(invoke_without_command=True)
+@click.option('--reset-db', is_flag=True, default=False)
 @click.pass_context
-def cachebrowser(click_context):
+def cachebrowser(click_context, reset_db):
     dev = False
 
     settings = DevelopmentSettings() if dev else ProductionSettings()
@@ -45,7 +47,7 @@ def cachebrowser(click_context):
         check_data_files(settings)
 
     logger.debug("Initializing database")
-    initialize_database(settings.database)
+    initialize_database(settings.database, reset_db)
 
     logger.debug("Initializing bootstrapper")
     bootstrapper = Bootstrapper(settings)
@@ -73,9 +75,11 @@ def start_cachebrowser_server(context):
     m = ProxyController(server, ipc)
 
     logger.debug("Adding 'Resolver' pipe")
-    m.add_pipe(Resolver(context.bootstrapper))
+    m.add_pipe(ResolverPipe(context))
+    logger.debug("Adding 'SNI' pipe")
+    m.add_pipe(SNIPipe(context))
     logger.debug("Adding 'Publisher' pipe")
-    m.add_pipe(Publisher())
+    m.add_pipe(PublisherPipe(context))
 
     try:
         logger.info("Listening for proxy connections on port {}".format(context.settings.port))

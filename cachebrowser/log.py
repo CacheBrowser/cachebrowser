@@ -3,7 +3,7 @@ import logging
 import colorama
 from termcolor import colored
 
-from cachebrowser.proxy import FlowPipe
+from cachebrowser.pipes.base import FlowPipe
 
 colorama.init()
 

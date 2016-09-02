@@ -15,6 +15,8 @@ class CacheBrowserSettings(object):
         self.database = None
         self.bootstrap_sources = None
 
+        self.default_sni_policy = "original"
+
         self.set_defaults()
 
     def set_defaults(self):

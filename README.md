@@ -5,9 +5,9 @@ Thanks for your understanding and support!
 
 https://cachebrowser.net
 
-	-[Installing CacheBrowser][#installation]
-	-[Bootstrapping][#bootstrapping]
-	-[Commands][#cachebrowser-commands]
+- [Installing CacheBrowser](#installation)
+- [Bootstrapping](#bootstrapping)
+- [Commands](#cachebrowser-commands)
 
 ## Installation
 ```

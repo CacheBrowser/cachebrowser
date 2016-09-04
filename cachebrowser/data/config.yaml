@@ -8,4 +8,4 @@ bootstrap_sources:
     path: local_bootstrap.yaml
 
   - type: remote
-    url: http://bootstrap.cachebrowser.net/api
+    url: https://bootstrap.cachebrowser.net/api

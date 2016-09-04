@@ -5,7 +5,7 @@ datafiles = [(root, [os.path.join(root, f) for f in files]) for root, dirs, file
 
 setup(
     name='CacheBrowser',
-    version='0.1',
+    version='0.1.0',
     author='Hadi Zolfaghari',
     author_email='hadi@cs.umass.edu',
     url='https://www.cachebrowser.net',
@@ -20,11 +20,10 @@ setup(
     data_files=datafiles,
     install_requires=[
         'mitmproxy>=0.17',
+        'click>=6.6',
         'peewee',
         'websocket-server',
         'appdirs',
-        'colorama',
-        'termcolor',
         'ipwhois',
     ],
 )

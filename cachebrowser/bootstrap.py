@@ -1,7 +1,10 @@
 import random
 import yaml
+import logging
 from copy import deepcopy
 from yaml.scanner import ScannerError
+
+logger = logging.getLogger(__name__)
 
 
 class BootstrapSourceError(Exception):
@@ -133,11 +136,18 @@ class RemoteBootstrapSource(BaseBootstrapSource):
         if data is None:
             return None
 
-        return {
+        host_data = {
             'hostname': hostname,
             'cdn': data['cdn'],
             'ssl': data['ssl']
         }
+
+        if 'fronts' in data and len(data['fronts']) > 0:
+            host_data['front'] = random.choice(data['fronts'])
+
+        if 'sni_policy' in data:
+            host_data['sni_policy'] = data['sni_policy']
+        return host_data
 
     def lookup_cdn(self, cdn_id):
         data = self._request('/cdns/%s' % cdn_id)
@@ -156,7 +166,11 @@ class RemoteBootstrapSource(BaseBootstrapSource):
         import json
 
         url = self.server_url + path
-        response = requests.get(url)
+        try:
+            response = requests.get(url)
+        except requests.exceptions.ConnectionError:
+            logger.warning("Connection with remote bootstrap '{}' failed".format(str(self)))
+            return None
 
         # response = request(os.path.join(self.server_url, path))
         if response.status_code == 404:
@@ -254,6 +268,12 @@ class Bootstrapper(object):
 
     def lookup_host(self, hostname):
         for source in self.sources:
+            logger.debug("Looking up host bootstrap info for '{}' from {} source '{}'".format(
+                hostname,
+                'local' if isinstance(source, LocalBootstrapSource) else 'remote',
+                str(source)
+            ))
+
             host_data = source.lookup_host(hostname)
             if host_data:
                 # return self._validate_host_data(hostname, host_data), source
@@ -262,6 +282,12 @@ class Bootstrapper(object):
 
     def lookup_cdn(self, cdn_id):
         for source in self.sources:
+            logger.debug("Looking up cdn bootstrap info for '{}' from {} source '{}'".format(
+                cdn_id,
+                'local' if isinstance(source, LocalBootstrapSource) else 'remote',
+                str(source)
+            ))
+
             cdn_data = source.lookup_cdn(cdn_id)
             if cdn_data:
                 # return self._validate_cdn_data(cdn_id, cdn_data), source

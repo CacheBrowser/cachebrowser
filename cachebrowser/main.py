@@ -32,12 +32,13 @@ class Context(object):
 
 @click.group(invoke_without_command=True)
 @click.option('-c', '--config', type=click.File('r'), help="Path to configuration file.")
+@click.option('-v', '--verbose', is_flag=True, default=False)
 @click.option('-p', '--port', type=int, help='The HTTP proxy port to run on.')
 @click.option('-d', '--database', type=str, help="Path to store database file.")
 @click.option('--sni', type=click.Choice(['empty', 'front', 'original']), help="The default SNI policy to use.")
 @click.option('--reset-db', is_flag=True, default=False, help="Reset the database.")
 @click.pass_context
-def cachebrowser(click_context, config, reset_db, **kwargs):
+def cachebrowser(click_context, config, verbose, reset_db, **kwargs):
     dev = False
 
     settings = DevelopmentSettings() if dev else ProductionSettings()
@@ -51,7 +52,7 @@ def cachebrowser(click_context, config, reset_db, **kwargs):
         print("Invalid settings: {}".format(e.message))
         sys.exit(1)
 
-    initialize_logging()
+    initialize_logging(verbose)
 
     if not dev:
         check_data_files(settings)
@@ -98,7 +99,8 @@ def start_cachebrowser_server(context):
         m.shutdown()
 
 
-def initialize_logging():
+def initialize_logging(verbose=False):
+    level = 'DEBUG' if verbose else 'INFO'
     logging.config.dictConfig({
         'version': 1,
         'disable_existing_loggers': False,  # this fixes the problem
@@ -110,14 +112,14 @@ def initialize_logging():
         },
         'handlers': {
             'default': {
-                'level':'INFO',
-                'class':'logging.StreamHandler',
+                'level': level,
+                'class': 'logging.StreamHandler',
             },
         },
         'loggers': {
             '': {
                 'handlers': ['default'],
-                'level': 'INFO',
+                'level': level,
                 'propagate': True
             }
         }

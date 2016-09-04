@@ -11,6 +11,10 @@ class DevelopmentSettings(CacheBrowserSettings):
             {
                 'type': 'local',
                 'path': self.data_path('local_bootstrap.yaml')
+            },
+            {
+                'type': 'remote',
+                'url': 'http://localhost:3000/api',
             }
         ]
 

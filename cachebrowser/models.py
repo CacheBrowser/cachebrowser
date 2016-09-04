@@ -32,6 +32,7 @@ class Host(peewee.Model):
     ssl = peewee.BooleanField(default=False)
     is_active = peewee.BooleanField(default=True)
     sni_policy = peewee.CharField(null=True)
+    front = peewee.CharField(null=True)
 
     class Meta:
         database = db

@@ -15,7 +15,7 @@ class InsufficientParametersException(Exception):
     pass
 
 
-class SettingsValidtionError(Exception):
+class SettingsValidationError(Exception):
     pass
 
 
@@ -25,7 +25,7 @@ class CacheBrowserSettings(object):
         self.port = None
         self.ipc_port = None
         self.database = None
-        self.bootstrap_sources = None
+        self.bootstrap_sources = []
 
         self.default_sni_policy = "original"
 
@@ -43,8 +43,8 @@ class CacheBrowserSettings(object):
         """
 
     def data_path(self, path=None):
-        data_directory = self.data_dir()
-        return data_directory if path is None else os.path.join(data_directory, path)
+        data_dir = self.data_dir()
+        return data_dir if path is None else os.path.join(data_dir, path)
 
     def read_bootstrap_sources(self, args):
         local_sources = args.get('local_bootstrap') or []
@@ -56,16 +56,20 @@ class CacheBrowserSettings(object):
 
     def validate(self):
         if not re.match('\d+[.]\d+[.]\d+[.]\d+', self.host):
-            raise SettingsValidtionError("invalid host ip address '{}'".format(self.host))
+            raise SettingsValidationError(
+                "invalid host ip address '{}'".format(self.host))
 
         if type(self.port) != int or not 0 < self.port < 65536:
-            raise SettingsValidtionError("invalid port number '{}'".format(self.port))
+            raise SettingsValidationError(
+                "invalid port number '{}'".format(self.port))
 
         if type(self.ipc_port) != int or not 0 < self.port < 65536:
-            raise SettingsValidtionError("invalid ipc port number '{}'".format(self.ipc_port))
+            raise SettingsValidationError(
+                "invalid ipc port number '{}'".format(self.ipc_port))
 
         if self.default_sni_policy not in [SNI_EMPTY, SNI_FRONT, SNI_ORIGINAL]:
-            raise SettingsValidtionError("invalid default sni policy '{}".format(self.default_sni_policy))
+            raise SettingsValidationError(
+                "invalid default sni policy '{}".format(self.default_sni_policy))
 
     def update_with_settings_file(self, config_file):
         if not config_file:
@@ -73,22 +77,23 @@ class CacheBrowserSettings(object):
         try:
             config = yaml.load(config_file)
         except yaml.scanner.ScannerError as e:
-            print(e)
-            print("Invalid config file, not in valid YAML format")
-            return sys.exit(1)
+            raise SettingsValidationError(
+                "Invalid config file, not in valid YAML format\n{}".format(e))
 
         update = partial(self._update_arg, config)
+        update_path = partial(self._update_path_arg, config)
 
         update('host')
         update('port')
-        update('database')
+        update_path('database')
         update('default_sni_policy', 'sni_policy')
 
+        self._update_bootstrap_sources(config.pop('bootstrap_sources', None))
+
         if config:
-            print("Invalid parameter in config file: '{}'".format(
-                config.keys()[0]
-            ))
-            sys.exit(1)
+            raise SettingsValidationError(
+                "Invalid parameter in config file: '{}'".format(config.keys()[0])
+            )
 
     def update_with_args(self, config):
         config = config.copy()
@@ -104,5 +109,37 @@ class CacheBrowserSettings(object):
         if value is not None:
             setattr(self, param, value)
 
+    def _update_path_arg(self, conf, param, confparam=None):
+        value = conf.pop((confparam or param).lower(), None)
+        if value is not None:
+            if not os.path.isabs(value):
+                value = self.data_path(value)
+            setattr(self, param, value)
+
+    def _update_bootstrap_sources(self, bootstrap_sources):
+        if bootstrap_sources is None:
+            return
+
+        for source in bootstrap_sources:
+            if 'type' not in source:
+                raise SettingsValidationError(
+                    "Missing 'type' field in bootstrap source")
+            if source['type'] == 'local':
+                path = source.get('path', None)
+                if path is None:
+                    raise SettingsValidationError(
+                        "Missing 'path' for local bootstrap source")
+                # change relative paths to absolute ones
+                # (all relative paths in config files are relative to data dir
+                if not os.path.isabs(path):
+                    source['path'] = self.data_path(path)
+
+            elif source['type'] == 'remote':
+                if source.get('url') is None:
+                    raise SettingsValidationError(
+                        "Missing 'url' for remote bootstrap source")
+
+            self.bootstrap_sources.append(source)
 
 settings = CacheBrowserSettings()
+

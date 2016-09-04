@@ -4,6 +4,7 @@ import logging
 import logging.config
 import sys
 import inspect
+import os
 
 import click
 import mitmproxy
@@ -16,7 +17,7 @@ from cachebrowser.proxy import ProxyController
 from cachebrowser.pipes.resolver import ResolverPipe
 from cachebrowser.pipes.publisher import PublisherPipe
 from cachebrowser.pipes.sni import SNIPipe
-from cachebrowser.settings import DevelopmentSettings, ProductionSettings, SettingsValidtionError
+from cachebrowser.settings import DevelopmentSettings, ProductionSettings, SettingsValidationError
 from cachebrowser.ipc import IPCManager
 from cachebrowser import cli
 
@@ -37,19 +38,21 @@ class Context(object):
 @click.option('-d', '--database', type=str, help="Path to store database file.")
 @click.option('--sni', type=click.Choice(['empty', 'front', 'original']), help="The default SNI policy to use.")
 @click.option('--reset-db', is_flag=True, default=False, help="Reset the database.")
+@click.option('--dev', is_flag=True, default=False, help="Run in development mode.")
 @click.pass_context
-def cachebrowser(click_context, config, verbose, reset_db, **kwargs):
-    dev = False
-
+def cachebrowser(click_context, config, verbose, reset_db, dev, **kwargs):
     settings = DevelopmentSettings() if dev else ProductionSettings()
 
-    settings.update_with_settings_file(config)
-    settings.update_with_args(kwargs)
+    if config is None and os.path.isfile(settings.data_path('config.yaml')):
+        config = open(settings.data_path('config.yaml'))
 
     try:
+        settings.update_with_settings_file(config)
+        settings.update_with_args(kwargs)
         settings.validate()
-    except SettingsValidtionError as e:
-        print("Invalid settings: {}".format(e.message))
+    except SettingsValidationError as e:
+        print("Error parsing settings")
+        print(e.message)
         sys.exit(1)
 
     initialize_logging(verbose)

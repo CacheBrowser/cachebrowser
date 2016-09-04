@@ -1,0 +1,11 @@
+host: 127.0.0.1
+port: 8080
+
+database: cachebrowser.db
+
+bootstrap_sources:
+  - type: local
+    path: local_bootstrap.yaml
+
+  - type: remote
+    url: http://bootstrap.cachebrowser.net/api

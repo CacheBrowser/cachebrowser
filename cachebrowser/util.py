@@ -2,32 +2,6 @@ import os
 import importlib
 import inspect
 
-from termcolor import colored
-
-
-class ColorCache(object):
-    def __init__(self):
-        self.cache = {}
-        self.colors = ['red', 'green', 'blue', 'magenta', 'cyan', 'grey', 'yellow']
-        self.cnt = 0
-
-    def get_color(self, key):
-        if key not in self.cache:
-            self.cache[key] = self.colors[self.cnt]
-            self.cnt = (self.cnt + 1) % len(self.colors)
-
-        return self.cache[key]
-
-
-ccache = ColorCache()
-
-
-def kcolor(text):
-
-    # print(colored('something', 'blue', 'on_red'))
-    return colored(text, ccache.get_color(text))
-
-
 def get_flow_size(flow, ):
     """
     (Not accurate)
@@ -84,5 +58,4 @@ class Data:
             raise ValueError("dataPath: %s does not exist." % fullpath)
         return fullpath
 pkg_data = Data(__name__)
-
 

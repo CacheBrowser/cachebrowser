@@ -15,6 +15,7 @@ class CDN(BaseModel):
     edge_server = peewee.CharField(null=True)
     sni_policy = peewee.CharField(null=True)
     valid = peewee.BooleanField(null=False, default=True)
+    front = peewee.CharField(null=True)
 
     class Meta:
         database = db

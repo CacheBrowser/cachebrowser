@@ -4,3 +4,4 @@ peewee==2.8.1
 ipwhois==0.13.0
 websocket_server==0.4
 appdirs==1.4.0
+PyYAML==3.11

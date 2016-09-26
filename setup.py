@@ -4,8 +4,9 @@ import os
 datafiles = [(root, [os.path.join(root, f) for f in files]) for root, dirs, files in os.walk('data')]
 
 setup(
-    name='CacheBrowser',
-    version='0.1.0',
+    name='cachebrowser',
+    description='A proxy-less censorship resistance tool',
+    version='0.1.1',
     author='Hadi Zolfaghari',
     author_email='hadi@cs.umass.edu',
     url='https://www.cachebrowser.net',
@@ -21,6 +22,7 @@ setup(
     install_requires=[
         'mitmproxy>=0.17',
         'click>=6.6',
+        'PyYAML',
         'peewee',
         'websocket-server',
         'appdirs',

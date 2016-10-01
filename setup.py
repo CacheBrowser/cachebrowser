@@ -24,7 +24,7 @@ setup(
         'click>=6.6',
         'PyYAML',
         'peewee',
-        'websocket-server',
+        'tornado',
         'appdirs',
         'ipwhois',
     ],

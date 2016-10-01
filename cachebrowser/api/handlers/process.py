@@ -1,6 +1,6 @@
 
 
-def close(request):
+def close(context, request):
     import os
     import signal
 
@@ -10,5 +10,5 @@ def close(request):
     os._exit(0)
 
 
-def ping(request):
-    request.reply({'afd': 12})
+def ping(context, request):
+    request.reply("pong")

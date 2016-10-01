@@ -19,6 +19,7 @@ from cachebrowser.pipes.publisher import PublisherPipe
 from cachebrowser.pipes.sni import SNIPipe
 from cachebrowser.settings import DevelopmentSettings, ProductionSettings, SettingsValidationError
 from cachebrowser.ipc import IPCManager
+from cachebrowser.api.routes import routes as api_routes
 from cachebrowser import cli
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ def cachebrowser(click_context, config, verbose, reset_db, dev, **kwargs):
 def start_cachebrowser_server(context):
     logger.debug("Initializing IPC")
     ipc = IPCManager(context)
+    ipc.register_rpc_handlers(api_routes)
 
     config = mitmproxy.proxy.ProxyConfig(port=context.settings.port)
     server = ProxyServer(config)

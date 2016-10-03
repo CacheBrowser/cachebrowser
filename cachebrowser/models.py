@@ -31,7 +31,6 @@ class Host(peewee.Model):
     hostname = peewee.CharField(primary_key=True)
     cdn = peewee.ForeignKeyField(CDN, null=True)
     ssl = peewee.BooleanField(default=False)
-    is_active = peewee.BooleanField(default=True)
     sni_policy = peewee.CharField(null=True)
     front = peewee.CharField(null=True)
 
@@ -48,6 +47,10 @@ class Host(peewee.Model):
         return self.__str__()
 
 
+class Website(peewee.Model):
+    hostname = peewee.CharField(primary_key=True)
+    enabled = peewee.BooleanField(default=False)
+
 DoesNotExist = peewee.DoesNotExist
 
 
@@ -58,8 +61,10 @@ def initialize_database(db_filename, reset=False):
         logger.info("Resetting database tables")
         Host.drop_table(True)
         CDN.drop_table(True)
+        Website.drop_table(True)
 
     CDN.create_table(True)
     Host.create_table(True)
+    Website.create_table(True)
 
     return db

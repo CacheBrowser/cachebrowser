@@ -13,10 +13,11 @@ from mitmproxy.proxy.server import ProxyServer
 
 from cachebrowser.bootstrap import Bootstrapper
 from cachebrowser.models import initialize_database
-from cachebrowser.proxy import ProxyController
+from cachebrowser.proxy import ProxyController, ProxyConfig
 from cachebrowser.pipes.resolver import ResolverPipe
 from cachebrowser.pipes.publisher import PublisherPipe
 from cachebrowser.pipes.sni import SNIPipe
+from cachebrowser.pipes.website_filter import WebsiteFilterPipe
 from cachebrowser.settings import DevelopmentSettings, ProductionSettings, SettingsValidationError
 from cachebrowser.ipc import IPCManager
 from cachebrowser.api.routes import routes as api_routes
@@ -86,10 +87,12 @@ def start_cachebrowser_server(context):
     ipc = IPCManager(context)
     ipc.register_rpc_handlers(api_routes)
 
-    config = mitmproxy.proxy.ProxyConfig(port=context.settings.port)
+    config = ProxyConfig(context)
     server = ProxyServer(config)
     m = ProxyController(server, ipc)
 
+    logger.debug("Adding WebsiteFilter Pipe")
+    m.add_pipe(WebsiteFilterPipe(context))
     logger.debug("Adding 'Resolver' pipe")
     m.add_pipe(ResolverPipe(context))
     logger.debug("Adding 'SNI' pipe")

@@ -1,1 +1,1 @@
-__author__ = 'hadi'
+SKIP_PIPES = "skip_pipes"

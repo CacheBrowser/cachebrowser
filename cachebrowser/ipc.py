@@ -189,6 +189,11 @@ class WebSocketIPCClient(tornado.websocket.WebSocketHandler, IPCClient):
                 self.router.unsubscribe(self.id, message['channel'])
             elif message_type == 'rpc_req':
                 self.router.rpc_request(self.id, message['request_id'], message['method'], message.get('params', {}))
+            elif message_type == 'rpc_resp':
+                self.router.rpc_response(message['request_id'], message['message'])
+            elif message_type == 'rpc_reg':
+                self.router.register_rpc(self.id, message['method'])
+                
         except Exception as e:
             logger.error("Uncaught exception occurred while handling IPC message: {}".format(message))
             traceback.print_exc()

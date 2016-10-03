@@ -38,11 +38,6 @@ class ResolverPipe(FlowPipe):
             self.log(err, 'debug')
             return server_conn
 
-        # Skip if host is not active
-        if not host.is_active:
-            server_conn.status = "Host not active"
-            return server_conn
-
         cdn = host.cdn
         if not cdn.valid or not cdn.edge_server:
             err = "Host {} does not have a valid CDN".format(hostname)

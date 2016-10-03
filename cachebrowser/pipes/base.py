@@ -37,7 +37,7 @@ class FlowPipe(Script, ScriptContext):
     def run(self, name, *args, **kwargs):
         hook = getattr(self, name, None)
         if hook:
-            hook(*args, **kwargs)
+            return hook(*args, **kwargs)
 
     def pause(self):
         _self = self

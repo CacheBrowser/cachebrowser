@@ -91,8 +91,8 @@ def start_cachebrowser_server(context):
     server = ProxyServer(config)
     m = ProxyController(server, ipc)
 
-    logger.debug("Adding WebsiteFilter Pipe")
-    m.add_pipe(WebsiteFilterPipe(context))
+    # logger.debug("Adding WebsiteFilter Pipe")
+    # m.add_pipe(WebsiteFilterPipe(context))
     logger.debug("Adding 'Resolver' pipe")
     m.add_pipe(ResolverPipe(context))
     logger.debug("Adding 'SNI' pipe")

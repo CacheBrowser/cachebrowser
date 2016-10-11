@@ -36,12 +36,14 @@ class ProxyConfig(mitmproxy.proxy.ProxyConfig):
         This makes mitmproxy use the original certificate and just pass the data through.
         However we should still stop the pipes from processing the request (using WebsiteFilterPipe)
         """
-        if address is None:
-            return False
+        return False
 
-        hostname = address[0] if type(address) == tuple else address.host
-        website, _ = Website.get_or_create(hostname=hostname)
-        return not website.enabled
+        # if address is None:
+        #     return False
+        #
+        # hostname = address[0] if type(address) == tuple else address.host
+        # website, _ = Website.get_or_create(hostname=hostname)
+        # return not website.enabled
 
 
 class ProxyController(mitmproxy.flow.FlowMaster):

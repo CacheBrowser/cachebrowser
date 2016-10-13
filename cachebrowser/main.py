@@ -18,6 +18,7 @@ from cachebrowser.pipes.resolver import ResolverPipe
 from cachebrowser.pipes.publisher import PublisherPipe
 from cachebrowser.pipes.sni import SNIPipe
 from cachebrowser.pipes.website_filter import WebsiteFilterPipe
+from cachebrowser.pipes.scrambler import ScramblerPipe
 from cachebrowser.settings import DevelopmentSettings, ProductionSettings, SettingsValidationError
 from cachebrowser.ipc import IPCManager
 from cachebrowser.api.routes import routes as api_routes
@@ -31,6 +32,7 @@ class Context(object):
         self.click = None
         self.settings = None
         self.bootstrapper = None
+        self.ipc = None
 
 
 @click.group(invoke_without_command=True)
@@ -86,6 +88,7 @@ def start_cachebrowser_server(context):
     logger.debug("Initializing IPC")
     ipc = IPCManager(context)
     ipc.register_rpc_handlers(api_routes)
+    context.ipc = ipc
 
     config = ProxyConfig(context)
     server = ProxyServer(config)
@@ -95,6 +98,8 @@ def start_cachebrowser_server(context):
     # m.add_pipe(WebsiteFilterPipe(context))
     logger.debug("Adding 'Resolver' pipe")
     m.add_pipe(ResolverPipe(context))
+    logger.debug("Adding Scrambler Pipe")
+    m.add_pipe(ScramblerPipe(context))
     logger.debug("Adding 'SNI' pipe")
     m.add_pipe(SNIPipe(context))
     logger.debug("Adding 'Publisher' pipe")
@@ -146,11 +151,17 @@ def check_data_files(settings):
             sys.exit(1)
 
     data_files = [
-        'local_bootstrap.yaml'
+        'local_bootstrap.yaml',
+        'scrambler/ad-domains',
+        'scrambler/blacklist',
+        'scrambler/decoy.json'
     ]
 
     for data_file in data_files:
         data_path = settings.data_path(data_file)
+
+        if os.path.dirname(data_file) and not os.path.isdir(os.path.dirname(data_path)):
+            os.makedirs(os.path.dirname(data_path))
 
         if not os.path.isfile(data_path):
             logger.info("Creating data file {}".format(data_path))

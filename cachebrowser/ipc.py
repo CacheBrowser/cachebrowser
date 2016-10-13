@@ -8,7 +8,7 @@ import tornado.ioloop
 import tornado.web
 import tornado.websocket
 
-from cachebrowser.api.core import api_manager, APIRequest
+from cachebrowser.api.core import APIRequest
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,7 @@ class IPCRouter(object):
 
     def rpc_request(self, client_id, request_id, method, params):
         if method not in self.rpc_clients:
+            logger.error("RPC request received for '{}', but route does not exist".format(method))
             # TODO Give error
             pass
 
@@ -95,6 +96,7 @@ class IPCManager(IPCClient):
         self.context = context
 
         self.router = IPCRouter()
+        self.handlers = {}
 
         self.id = 'local_client'
         self.router.add_client(self.id, self)
@@ -128,6 +130,7 @@ class IPCManager(IPCClient):
     def register_rpc(self, method, handler):
         logger.debug("Registering RPC method {}".format(method))
         self.router.register_rpc(self.id, method)
+        self.handlers[method] = handler
 
     def register_rpc_handlers(self, routes):
         for route in routes:
@@ -138,7 +141,8 @@ class IPCManager(IPCClient):
 
     def send_rpc_request(self, request_id, method, params):
         request = RPCRequest(self.router, request_id, method, params)
-        api_manager.handle_api_request(self.context, request)
+        self.handlers[method](self.context, request)
+        # api_manager.handle_api_request(self.context, request)
 
     def send_rpc_response(self, request_id, response):
         raise NotImplementedError()

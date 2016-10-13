@@ -7,6 +7,8 @@ class FlowPipe(Script, ScriptContext):
         self.bootstrapper = self.context.bootstrapper
         self.settings = self.context.settings
 
+        self.enabled = True
+
         self._master = None
         if master:
             self.set_master(master)
@@ -35,9 +37,18 @@ class FlowPipe(Script, ScriptContext):
         self._master.replay_request(flow, run_scripthooks=run_hooks, block=block)
 
     def run(self, name, *args, **kwargs):
+        if not self.enabled:
+            return
+
         hook = getattr(self, name, None)
         if hook:
             return hook(*args, **kwargs)
+
+    def enable(self):
+        self.enabled = True
+
+    def disable(self):
+        self.enabled = False
 
     def pause(self):
         _self = self

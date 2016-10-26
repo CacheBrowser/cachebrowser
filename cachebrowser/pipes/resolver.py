@@ -47,7 +47,7 @@ class ResolverPipe(FlowPipe):
         server_conn.address = Address((cdn.edge_server, server_conn.address.port))
 
         server_conn.cachebrowsed = True
-        server_conn.cdn = cdn
+        server_conn.cdn = None if cdn is None else cdn.name or cdn.id
         server_conn.host = host
 
         return server_conn
@@ -81,12 +81,16 @@ class ResolverPipe(FlowPipe):
             except BootstrapError:
                 raise DoesNotExist
 
+            cdn_id = host_data.get('cdn', None)
+            if 'cdn' in host_data:
+                del host_data['cdn']
+
             host = Host(**host_data)
 
             try:
-                host.cdn = self._get_or_bootstrap_cdn(host.cdn_id)
+                host.cdn = self._get_or_bootstrap_cdn(cdn_id)
             except DoesNotExist:
-                host.cdn = CDN.create(id=host.cdn_id, valid=False)
+                host.cdn = CDN.create(id=cdn_id, valid=False)
 
             host.save(force_insert=True)
 
@@ -97,7 +101,7 @@ class ResolverPipe(FlowPipe):
             return CDN.get(CDN.id == cdn_id)
         except DoesNotExist:
             try:
-                cdn_data = self.bootstrapper.lookup_cdn(id)
+                cdn_data = self.bootstrapper.lookup_cdn(cdn_id)
                 cdn = CDN(**cdn_data)
                 cdn.save(force_insert=True)
                 return cdn

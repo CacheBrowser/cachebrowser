@@ -64,7 +64,7 @@ def cachebrowser(click_context, config, verbose, reset_db, dev, **kwargs):
     if not dev:
         check_data_files(settings)
 
-    logger.debug("Initializing database")
+    logger.debug("Initializing database {}".format(settings.database))
     initialize_database(settings.database, reset_db)
 
     logger.debug("Initializing bootstrapper")

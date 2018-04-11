@@ -1,3 +1,6 @@
+# Deprecated
+CacheBrowser has been integrated into our new censorship circumvention tool called <b>MassBrowser</b>. Please visit the [MassBrowser project](https://massbrowser.cs.umass.edu).
+
 # CacheBrowser
 
 The current CacheBrowser software is a research prototype implementation, and is not yet ready for end-users. If you are a researcher or developer check it out and give us feedback, otherwise please be patient while we work on an end-user version of the code. 

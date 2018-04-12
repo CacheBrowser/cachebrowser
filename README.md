@@ -1,5 +1,5 @@
-# Deprecated
-CacheBrowser has been integrated into our new censorship circumvention tool called <b>MassBrowser</b>. Please visit the [MassBrowser project](https://massbrowser.cs.umass.edu).
+# Merged Into MassBrowser
+CacheBrowser has been merged into our new censorship circumvention tool called <b>MassBrowser</b>. Please visit the [MassBrowser project](https://massbrowser.cs.umass.edu).
 
 # CacheBrowser
 

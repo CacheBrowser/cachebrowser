@@ -1,5 +1,5 @@
 # Merged Into MassBrowser
-CacheBrowser has been merged into our new censorship circumvention tool called <b>MassBrowser</b>. Please visit the [MassBrowser project](https://massbrowser.cs.umass.edu).
+CacheBrowser has been merged into our new censorship circumvention tool called <b>MassBrowser</b>. Please visit the [MassBrowser project's website](https://massbrowser.cs.umass.edu) and its [git repository](https://github.com/SPIN-UMass/MassBrowser).
 
 # CacheBrowser
 
